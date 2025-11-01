@@ -1,0 +1,12 @@
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "security-mcp-server.fullname" . }}-config
+  labels:
+    {{- include "security-mcp-server.labels" . | nindent 4 }}
+data:
+{{- range $k, $v := .Values.config }}
+  {{ $k }}: "{{ $v }}"
+{{- end }}
+

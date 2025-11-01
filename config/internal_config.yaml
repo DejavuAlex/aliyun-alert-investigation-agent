@@ -1,0 +1,24 @@
+
+#llm:
+#  api_key: "YOUR_LLM_API_KEY"
+#  model: "gpt-4"
+
+log_level: "DEBUG"
+mcp_debug: true
+
+host: "127.0.0.1"
+port: 8000
+
+alicloud:
+  - account_id: "1219234893152666"
+    access_key_id: "YOUR_ACCESS_KEY_ID"
+    access_key_secret: "YOUR_ACCESS_KEY_SECRET"
+    region_id: "cn-shanghai"
+
+jihulab:
+  url: "https://jihulab.com/api/v4"
+  token: "YOUR_JIHULAB_TOKEN"
+  roche_parent_group: "roche%2Fcommercial-innovation"
+
+virustotal:
+    api_key: "YOUR_VIRUSTOTAL_API_KEY"

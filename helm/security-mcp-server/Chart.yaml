@@ -1,0 +1,18 @@
+# Helm chart definition for security-mcp-server
+apiVersion: v2
+name: security-mcp-server
+description: Helm chart for the Roche AI Security MCP Server
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - security
+  - mcp
+  - ai
+home: https://example.com/security-mcp-server
+sources:
+  - https://example.com/security-mcp-server/repo
+maintainers:
+  - name: maintainer
+    email: maintainer@example.com
+
