@@ -3,8 +3,6 @@ from alibabacloud_rds20140815.client import Client as Rds20140815Client
 from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_rds20140815 import models as rds_20140815_models
-from alibabacloud_tea_util import models as util_models
-from alibabacloud_tea_util.client import Client as UtilClient
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
 

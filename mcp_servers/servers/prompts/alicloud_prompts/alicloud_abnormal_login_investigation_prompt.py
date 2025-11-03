@@ -1,7 +1,4 @@
-from fastmcp.prompts.prompt import PromptResult, Message, SyncPromptResult
 from mcp.types import PromptMessage, TextContent
-from sqlalchemy.dialects.mssql.information_schema import constraints
-from werkzeug.testapp import TEMPLATE
 
 from mcp_servers.base_server import BaseServer
 from mcp_servers.servers.prompts.prompt_mixin import PromptMixin

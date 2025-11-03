@@ -65,7 +65,6 @@ readinessProbe:
 env:
   - name: LOG_LEVEL
     value: info
-
 extraEnvFrom: []
 extraEnv: []
 
@@ -76,7 +75,22 @@ config:
 secret:
   enabled: true
   data:
-    API_TOKEN: ""  # base64 NOT required here; chart will b64 encode
+    LOG_LEVEL: info
+    ALICLOUD_CONFIGS:
+      - account_id: "123456"
+        access_key_id: "sscaseoiwerw"
+        access_key_secret: "zvzxvsdfsfl"
+        region_id: "cn-shanghai"
+      - account_id: "abcdef"
+        access_key_id: "98osiopoi98"
+        access_key_secret: "qkomcwkklasd"
+        region_id: "cn-beijing"
+    JIHULAB_CONFIG:
+      url: "https://jihulab.com/api/v4"
+      token: "***"
+      roche_parent_group: "roche%2Fcommercial-innovation"
+    VIRUSTOTAL_CONFIG:
+      api_key: "***"
   existingSecret: ""
 
 nodeSelector: {}

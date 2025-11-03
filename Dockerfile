@@ -3,7 +3,7 @@
 ############################
 # Builder stage
 ############################
-FROM python:3.11-slim AS builder
+FROM artifact.roche.com.cn/common-dockerhub-docker-r/python:3.11-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -11,8 +11,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
-# System build deps (remove later)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Use Aliyun Debian mirrors for faster apt operations
+RUN set -eux; \
+    . /etc/os-release; \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${VERSION_CODENAME} main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${VERSION_CODENAME}-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${VERSION_CODENAME}-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security ${VERSION_CODENAME}-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl gcc && \
     rm -rf /var/lib/apt/lists/*
 
@@ -34,8 +40,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Minimal runtime deps (add if needed)
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
+# Apply Aliyun mirrors again in runtime image (builder layers not shared)
+RUN set -eux; \
+    . /etc/os-release; \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${VERSION_CODENAME} main contrib non-free non-free-firmware" > /etc/apt/sources.list; \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${VERSION_CODENAME}-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ ${VERSION_CODENAME}-backports main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security ${VERSION_CODENAME}-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list; \
+    apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -52,16 +64,17 @@ COPY . .
 RUN chown -R app:app /app
 USER app
 
-EXPOSE 8080
+EXPOSE 8000
 
 # Healthcheck expects the app to expose /health
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python -c "import urllib.request,os,sys; \
-    url=f'http://127.0.0.1:{os.environ.get(\"PORT\",\"8080\")}/health'; \
+    url=f'http://127.0.0.1:{os.environ.get(\"PORT\",\"8000\")}/health'; \
     urllib.request.urlopen(url).read()" || exit 1
 
 # Entrypoint (adjust module/package if different)
 # If your server starts with `python -m mcp_servers`, this works; override CMD for alt modes.
-ENTRYPOINT ["python", "-m", "mcp_servers"]
-CMD ["serve"]
+ENTRYPOINT ["python", "main.py"]
+#CMD ["serve"]
+
 

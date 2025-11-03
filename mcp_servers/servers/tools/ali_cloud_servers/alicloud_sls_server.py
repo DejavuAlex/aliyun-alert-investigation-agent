@@ -1,5 +1,4 @@
 from alibabacloud_credentials.client import Client
-from alibabacloud_credentials.models import Config
 from alibabacloud_sls20201230.models import GetProjectLogsResponse, GetLogsResponse
 
 from mcp_servers.base_server import BaseServer

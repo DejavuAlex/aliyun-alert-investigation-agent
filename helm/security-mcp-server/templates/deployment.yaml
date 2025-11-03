@@ -43,8 +43,10 @@ spec:
               value: {{ .value | quote }}
             {{- end }}
           envFrom:
+            # ConfigMap (non-sensitive overrides)
             - configMapRef:
                 name: {{ include "security-mcp-server.fullname" . }}-config
+            # Secret: complex list/dict values (e.g. ALICLOUD_CONFIGS) are JSON-serialized in secret.yaml
             {{- if and .Values.secret.enabled (not .Values.secret.existingSecret) }}
             - secretRef:
                 name: {{ include "security-mcp-server.fullname" . }}-secret
@@ -101,4 +103,3 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-

@@ -1,6 +1,5 @@
 from fastmcp.prompts.prompt import PromptResult, Message, SyncPromptResult
 from mcp.types import PromptMessage, TextContent
-from sqlalchemy.orm.unitofwork import track_cascade_events
 
 from mcp_servers.base_server import BaseServer
 

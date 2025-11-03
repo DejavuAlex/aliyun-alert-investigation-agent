@@ -2,7 +2,6 @@ from alibabacloud_actiontrail20200706.models import LookupEventsRequestLookupAtt
 from alibabacloud_actiontrail20200706.client import Client as Actiontrail20200706Client
 from alibabacloud_credentials.client import Client
 from alibabacloud_tea_openapi import models as open_api_models
-from alibabacloud_credentials.models import Config
 from alibabacloud_actiontrail20200706 import models as actiontrail_20200706_models
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any

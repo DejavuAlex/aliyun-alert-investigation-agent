@@ -1,4 +1,5 @@
 import json
+import os
 from argparse import Namespace
 
 import argcomplete
@@ -36,24 +37,33 @@ def check_config(parser,config) -> None:
 
     """ get alicloud configs """
     temp_configs = []
-    if type(config.alicloud_configs) is not list:
-        parser.error(f'--alicloud is a list')
+    # Accept either a JSON string list or list of JSON fragments (legacy)
+    if isinstance(config.alicloud_configs, str):
+        try:
+            parsed = json.loads(config.alicloud_configs)
+        except Exception as e:
+            parser.error(f'--alicloud malformed JSON list: {e}')
+        if not isinstance(parsed, list):
+            parser.error(f'--alicloud must be a JSON list')
+        source_list = parsed
+    elif isinstance(config.alicloud_configs, list):
+        source_list = []
+        for s in config.alicloud_configs:
+            source_list.append(json.loads(s.replace("'", '"')))
     else:
-        for iter_config in config.alicloud_configs:
-            iter_config = json.loads(iter_config.replace("'", '"'))
-            if "access_key_secret" not in iter_config:
-                parser.error(
-                    f'--alicloud.[].access_key_secret must be set'
-                )
-            if "region_id" not in iter_config:
-                parser.error(
-                    f'--alicloud.[].region_id must be set'
-                )
-            temp_configs.append(iter_config)
+        parser.error(f'--alicloud must be a JSON list string')
+        source_list = []
+    for iter_config in source_list:
+        if "access_key_secret" not in iter_config:
+            parser.error(f'--alicloud.[].access_key_secret must be set')
+        if "region_id" not in iter_config:
+            parser.error(f'--alicloud.[].region_id must be set')
+        temp_configs.append(iter_config)
     config.alicloud_configs = temp_configs
     # get virustotal config
     if config.virustotal:
-        config.virustotal = json.loads(config.virustotal.replace("'", '"'))
+        if isinstance(config.virustotal, str):
+            config.virustotal = json.loads(config.virustotal.replace("'", '"'))
         if "api_key" not in config.virustotal:
             parser.error(
                 f'--virustotal.api_key must be set'
@@ -73,7 +83,8 @@ def check_config(parser,config) -> None:
             f'--port must be set'
         )
 
-    config.jihulab = json.loads(config.jihulab.replace("'", '"'))
+    if isinstance(config.jihulab, str):
+        config.jihulab = json.loads(config.jihulab.replace("'", '"'))
     if "token" not in config.jihulab:
         parser.error(
             f'--jihulab.token must be set'
@@ -93,11 +104,27 @@ def parse_cmd_config(argv: list[str]) -> Namespace:
         description="Security MCP server",
         add_env_var_help=True,
         config_file_parser_class=configargparse.YAMLConfigFileParser,
-        default_config_files=['config/internal_config.yaml'],
+        # removed default_config_files to favor K8S env vars
     )
     parser.add_parser_args()
     argcomplete.autocomplete(parser)
     config = parser.parse_args(argv)
+    # Optional fallback: if K8S mounted secret file path provided
+    secret_file = os.environ.get("K8S_SECRET_CONFIG_FILE")
+    if secret_file and os.path.isfile(secret_file):
+        with open(secret_file, "r", encoding="utf-8") as f:
+            data = json.loads(f.read())
+        # Merge only missing attributes
+        if not getattr(config, "alicloud_configs", None) and "alicloud" in data:
+            config.alicloud_configs = json.dumps(data["alicloud"])
+        if not getattr(config, "jihulab", None) and "jihulab" in data:
+            config.jihulab = json.dumps(data["jihulab"])
+        if not getattr(config, "virustotal", None) and "virustotal" in data:
+            config.virustotal = json.dumps(data["virustotal"])
+        if not getattr(config, "host", None) and "host" in data:
+            config.host = data["host"]
+        if not getattr(config, "port", None) and "port" in data:
+            config.port = data["port"]
     check_config(parser,config)
     return config
 

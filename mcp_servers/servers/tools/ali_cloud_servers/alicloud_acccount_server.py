@@ -1,6 +1,5 @@
 
 from alibabacloud_credentials.client import Client
-from alibabacloud_credentials.models import Config
 from alibabacloud_ram20150501.client import Client as Ram20150501Client
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_ram20150501 import models as ram_20150501_models

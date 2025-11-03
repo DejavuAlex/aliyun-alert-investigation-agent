@@ -2,35 +2,9 @@ import argparse
 from typing import Any,cast,TYPE_CHECKING,List
 from io import StringIO
 import configargparse
+from pkg_resources import require
 
-OUTPUT_CHOICES = [
-    "cli",
-    "csv",
-    "cyclonedx",
-    "cyclonedx_json",
-    "json",
-    "junitxml",
-    "github_failed_only",
-    "gitlab_sast",
-    "sarif",
-    "spdx",
-]
-SCAN_TYPE_CHOICE= [
-    "sourcecode_scan",
-    "iac_scan",
-    "dependency_scan",
-    "image_scan",
-    "credential_scan",
-    "AI_scan"
-]
-PACKAGE_TYPE_CHOICE = [
-    "yarn",
-    "npm",
-    "gradle",
-    "mvn",
-    "nuget",
-    "pip"
-]
+
 class ExtArgumentParser(configargparse.ArgumentParser):
     def __init__(self, *args:Any, **kwargs:Any) -> None:
         super().__init__(*args, **kwargs)
@@ -50,17 +24,19 @@ class ExtArgumentParser(configargparse.ArgumentParser):
             help="MCP server log level",
             dest="log_level",
         )
-        self.add(
-            "--llm",
-            help="LLM config, get from internal config file by default",
-            dest="llm_config",
-        )
+        # self.add(
+        #     "--llm",
+        #     help="LLM config, get from internal config file by default",
+        #     dest="llm_config",
+        #     required=False,
+        # )
 
         self.add(
             "--alicloud",
-            help="Ali Cloud access key & secret",
-            nargs="+",
+            env_var="ALICLOUD_CONFIGS",
+            help="AliCloud accounts JSON list (from K8S secret env var ALICLOUD_CONFIGS)",
             dest="alicloud_configs",
+            required=True
         )
         self.add(
             "--mcp_debug",
@@ -82,14 +58,15 @@ class ExtArgumentParser(configargparse.ArgumentParser):
         )
         self.add(
             "--jihulab",
-            help="Jihu lab config",
+            env_var="JIHULAB_CONFIG",
+            help="JihuLab config JSON (from K8S secret env var JIHULAB_CONFIG)",
             dest="jihulab",
         )
         self.add(
             "--virustotal",
-            help="VirusTotal invetigate the file or urls, here config the apikey",
+            env_var="VIRUSTOTAL_CONFIG",
+            help="VirusTotal config JSON (from K8S secret env var VIRUSTOTAL_CONFIG)",
             dest="virustotal",
-
         )
 
 
@@ -132,4 +109,3 @@ class ExtArgumentParser(configargparse.ArgumentParser):
                         r.write("  %s\n" % " ".join(value))
 
         return r.getvalue()
-

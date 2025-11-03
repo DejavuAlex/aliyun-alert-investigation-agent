@@ -1,14 +1,11 @@
-import asyncio
-import inspect
-import sys
-from typing import List
 
-from pydantic import Field
+import sys
+
+
+
 
 from auto_MCP_manager import AutoMCPManager
 from config import parse_cmd_config
-# from config import load_cmd_config, ServerConfig
-from mcp_servers.base_server import BaseServer
 from fastmcp.utilities import logging
 
 logger = logging.get_logger(__name__)
@@ -19,6 +16,7 @@ logger = logging.get_logger(__name__)
 
 
 def main():
+    # Config now sourced from K8S env vars / optional secret file (see config.parse_cmd_config)
     argvs = sys.argv[1:]
     cmd_config = parse_cmd_config(argvs)
     #auto register MCP servers

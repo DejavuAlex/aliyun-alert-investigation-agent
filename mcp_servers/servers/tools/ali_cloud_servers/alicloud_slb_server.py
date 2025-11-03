@@ -4,7 +4,6 @@ from alibabacloud_credentials.client import Client as CredentialClient
 from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_slb20140515 import models as slb_20140515_models
 from alibabacloud_tea_util import models as util_models
-from alibabacloud_tea_util.client import Client as UtilClient
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
 
