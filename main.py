@@ -37,7 +37,7 @@ def main():
         transport="streamable-http",
         host=cmd_config.host,
         port=cmd_config.port,
-        log_level="DEBUG",
+        log_level=cmd_config.log_level,
     )
 
 

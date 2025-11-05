@@ -12,7 +12,7 @@ class ALICLOUD_ROUTING_CHECK_PROMPT(BaseServer,PromptMixin):
         self.setup_server()
 
     def setup_server(self):
-
+        return
         @self.mcp_instance.tool
         def routing_sas_check(
                 access_key_id: str,

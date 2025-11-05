@@ -13,7 +13,7 @@ class IP_COMMON_PROMPT(BaseServer,PromptMixin):
         self.setup_server()
 
     def setup_server(self):
-
+        return
         @self.mcp_instance.tool
         def ip_investigation_prompt(
                 ip_list:str,

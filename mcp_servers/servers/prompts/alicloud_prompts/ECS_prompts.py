@@ -14,7 +14,7 @@ class Ali_CLOUD_ECS_PROMPT(BaseServer,PromptMixin):
         self.setup_server()
 
     def setup_server(self):
-
+        return
         @self.mcp_instance.tool
         def ecs_instance_investigation_prompt(
                 instance_id:str,
