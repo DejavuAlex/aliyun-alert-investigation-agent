@@ -12,6 +12,22 @@ from mcp_servers.base_server import BaseServer
 from fastmcp.utilities import logging
 logger = logging.get_logger(__name__)
 
+# 命令执行状态描述
+COMMAND_INVOCATION_STATUS_DESCRIPTIONS = {
+    "Pending": "系统正在校验或发送命令",
+    "Invalid": "命令类型或参数有误",
+    "Aborted": "向实例发送命令失败（实例需运行且命令需1分钟内发送完成）",
+    "Running": "命令正在实例上执行",
+    "Success": "执行成功：退出码为0（或定时任务上一次成功且已结束）",
+    "Failed": "执行失败：退出码非0（或定时任务上一次失败且将中止）",
+    "Error": "执行异常无法继续",
+    "Timeout": "命令执行超时",
+    "Cancelled": "执行动作取消，命令未启动",
+    "Stopping": "正在停止执行的命令",
+    "Terminated": "命令执行中被终止",
+    "Scheduled": "定时任务等待执行",
+}
+
 class ALI_CLOUD_ECS(BaseServer):
 
     ecs_client = None
@@ -427,7 +443,7 @@ class ALI_CLOUD_ECS(BaseServer):
                 command_request:str,
                 instance_id_list:list[str],
                 os:str
-        ):
+        ) -> dict:
             """
             在指定ECS实例上运行命令
 
@@ -438,7 +454,8 @@ class ALI_CLOUD_ECS(BaseServer):
                 instance_id_list: 执行命令所在的ECS实例ID列表
                 os: 目标实例操作系统类型，取值：Linux、Windows
             Returns:
-                str: commandId
+                commandId: 命令ID
+                invokeId: 命令执行ID
             """
             ecs_client = self.initialize_client_4_specific_region(access_key_id,region_id)
 
@@ -447,6 +464,8 @@ class ALI_CLOUD_ECS(BaseServer):
                 request.instance_id = instance_id_list
                 request.command_content = command_request
                 request.region_id = region_id
+                request.content_encoding = "Base64"
+                request.keep_command = True
                 if os == "Linux":
                     request.type = "RunShellScript"
                 elif os == "Windows":
@@ -457,7 +476,7 @@ class ALI_CLOUD_ECS(BaseServer):
                     request,
                     util_models.RuntimeOptions()
                 )
-                return response.body.command_id
+                return {"commandId":response.body.command_id,"invokeId":response.body.invoke_id}
             except Exception as e:
                 raise RuntimeError(f"Failed to run command on ECS instance: {e}")
 
@@ -467,9 +486,22 @@ class ALI_CLOUD_ECS(BaseServer):
                 region_id: str,
                 command_id: str,
                 instance_id: str,
+                invoke_id: str
         ) -> str:
             """
-            查询命令执行结果，注意控制command_id的size，不能超过18KB
+            查询命令执行结果
+            当执行命令后，不代表命令一定成功执行，并且一定有预期的命令效果。您需要通过本接口查看实际的具体执行结果，以实际输出结果为准。
+            可以查询最近 4 周的执行信息，执行信息的保留上限为 10 万条。
+            可以通过云助手任务状态事件订阅的方式，通过事件获取任务结果，避免频繁轮询，用以提升效率。
+            分页查询首页时，仅需设置MaxResults以限制返回信息的条目数，返回结果中的NextToken将作为查询后续页的凭证。查询后续页时，将NextToken参数设置为上一次返回结果中获取到的NextToken作为查询凭证，并设置MaxResults限制返回条目数。
+            DescribeInvocations和DescribeInvocationResults差异点：
+            当一次RunCommand/InvokeCommand调用指定有多个实例时：
+            使用DescribeInvocations可以获得任务在各个实例上的执行状态、多个实例任务状态的聚合状态；
+            使用DescribeInvocationResults仅能获得各个实例上的单独的执行状态，不包含多实例的聚合状态；
+            当一次RunCommand/InvokeCommand调用指定有一个实例时：
+            DescribeInvocations与DescribeInvocationResults区别不大，完全可以互相替换。
+            当需要查看定时性（周期性）任务、开机自动执行任务（RepeatMode=Period, EveryReboot）的每一次执行情况时，仅能用DescribeInvocationResults可以查询获得执行的过往历史记录（需指定IncludeHistory=true），而DescribeInvocations仅支持返回最新的任务状态。
+            当需要查看命令的内容、参数时，仅有DescribeInvocations返回CommandContent
 
             Args:
                 access_key_id: 使用哪个账号下的access_key_id来调用接口
@@ -486,24 +518,32 @@ class ALI_CLOUD_ECS(BaseServer):
                     command_id=command_id,
                     instance_id=instance_id,
                     region_id=region_id,
-                    content_encoding="Base64"
+                    content_encoding="Base64",
+                    invoke_id=invoke_id,
                 )
-                response:ecs_20140526_models.DescribeInvocationResultsResponse = await ecs_client.describe_invocation_results_with_options_async(
+                response: ecs_20140526_models.DescribeInvocationResultsResponse = await ecs_client.describe_invocation_results_with_options_async(
                     request,
                     util_models.RuntimeOptions()
                 )
                 invocation_result = response.body.invocation.invocation_results.invocation_result[0]
-                if not UtilClient.is_unset(invocation_result.invocation_status) and UtilClient.equal_string(
-                        invocation_result.invocation_status, 'Aborted'):
-                    raise RuntimeError(f'执行失败 错误信息 {invocation_result.error_info}')
-                elif UtilClient.is_unset(invocation_result.exit_code):
-                    raise RuntimeError('脚本执行中，请等待.......')
-                else:
-                    if UtilClient.equal_string(f'{invocation_result.exit_code}', '0'):
-                        return invocation_result.output
+                status = invocation_result.invocation_status
+                exit_code = invocation_result.exit_code
+                error_code = invocation_result.error_code
+                error_info = invocation_result.error_info
+                logger.debug(f"Invocation status={status} exit_code={exit_code} instance={instance_id}")
+                # 按状态分类处理
+                if status in ("Pending", "Running", "Scheduled", "Stopping"):
+                    raise RuntimeError(f"命令状态[{status}]：{COMMAND_INVOCATION_STATUS_DESCRIPTIONS.get(status,'进行中')}，请稍后重试")
+                if status in ("Invalid", "Aborted", "Error", "Timeout", "Cancelled", "Terminated"):
+                    raise RuntimeError(f"命令状态[{status}]失败：{COMMAND_INVOCATION_STATUS_DESCRIPTIONS.get(status,'失败')}；错误信息: {error_info or '无'}")
+                if status == "Failed":
+                    raise RuntimeError(f"命令执行失败，退出码: {exit_code}，错误: {error_info or '无'}")
+                if status == "Success":
+                    if UtilClient.equal_string(f"{exit_code}", "0"):
+                        return invocation_result.output  # Base64 编码输出
                     else:
-                        raise RuntimeError(
-                            f'错误码 {invocation_result.error_code} 错误信息 {invocation_result.error_info}')
+                        raise RuntimeError(f"命令标记成功但退出码非0({exit_code})，错误: {error_info or '无'}")
+                # 未知状态兜底
+                raise RuntimeError(f"未识别的命令状态[{status}]，请检查：{error_info or '无'}")
             except Exception as e:
                 raise RuntimeError(f"Failed to describe invocation results: {e}")
-
