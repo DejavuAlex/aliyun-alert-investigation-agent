@@ -4,37 +4,18 @@ from argparse import Namespace
 
 import argcomplete
 import configargparse
-from pydantic import BaseModel, Field
-from typing import Optional
 
 from ext_argument_parser import ExtArgumentParser
-
-
-
-
-# class ServerConfig(BaseModel):
-#     host: str= "127.0.0.1"
-#     port: int=8000
-#     # llm_api_key:str = Field(..., min_length=1)
-#     # model_name: str = "gpt-4o-2024-08-06"
-#     access_key_id: str = Field(..., min_length=1)
-#     access_key_secret: str = Field(..., min_length=1)
-#     region_id: str = Field(..., min_length=1)
+logger = None
 
 def check_config(parser,config) -> None:
-
-    """ get llm config """
-    # config.llm_config = json.loads(config.llm_config.replace("'", '"'))
-    # if "api_key" not in config.llm_config:
-    #     parser.error(
-    #         f'--llm.api_key must be set'
-    #     )
-    #
-    # if "model" not in  config.llm_config:
-    #     parser.error(
-    #         f'--llm.model must be set'
-    #     )
-
+    # set logger level
+    if config.log_level:
+        os.environ["LOG_LEVEL"] = config.log_level
+        print("set log level to:", config.log_level)
+    from log_config import get_logger
+    global logger
+    logger = get_logger(__name__)
     """ get alicloud configs """
     temp_configs = []
     # Accept either a JSON string list or list of JSON fragments (legacy)
@@ -60,6 +41,7 @@ def check_config(parser,config) -> None:
             parser.error(f'--alicloud.[].region_id must be set')
         temp_configs.append(iter_config)
     config.alicloud_configs = temp_configs
+    logger.debug("set alicloud account configs: %s", config.alicloud_configs)
     # get virustotal config
     if config.virustotal:
         if isinstance(config.virustotal, str):
@@ -104,27 +86,31 @@ def parse_cmd_config(argv: list[str]) -> Namespace:
         description="Security MCP server",
         add_env_var_help=True,
         config_file_parser_class=configargparse.YAMLConfigFileParser,
-        # removed default_config_files to favor K8S env vars
+        # 命令行优先级还是大于文件，所以文件里面的定义会被命令行覆盖，而在生产环境，命令行又是通过env变量注入的，这里主要是为了本地调试用
+        default_config_files = [
+            os.path.join(os.getcwd(), "config/internal_config.yaml"),
+
+        ],
     )
     parser.add_parser_args()
     argcomplete.autocomplete(parser)
     config = parser.parse_args(argv)
     # Optional fallback: if K8S mounted secret file path provided
-    secret_file = os.environ.get("K8S_SECRET_CONFIG_FILE")
-    if secret_file and os.path.isfile(secret_file):
-        with open(secret_file, "r", encoding="utf-8") as f:
-            data = json.loads(f.read())
-        # Merge only missing attributes
-        if not getattr(config, "alicloud_configs", None) and "alicloud" in data:
-            config.alicloud_configs = json.dumps(data["alicloud"])
-        if not getattr(config, "jihulab", None) and "jihulab" in data:
-            config.jihulab = json.dumps(data["jihulab"])
-        if not getattr(config, "virustotal", None) and "virustotal" in data:
-            config.virustotal = json.dumps(data["virustotal"])
-        if not getattr(config, "host", None) and "host" in data:
-            config.host = data["host"]
-        if not getattr(config, "port", None) and "port" in data:
-            config.port = data["port"]
+    # secret_file = os.environ.get("K8S_SECRET_CONFIG_FILE")
+    # if secret_file and os.path.isfile(secret_file):
+    #     with open(secret_file, "r", encoding="utf-8") as f:
+    #         data = json.loads(f.read())
+    #     # Merge only missing attributes
+    #     if not getattr(config, "alicloud_configs", None) and "alicloud" in data:
+    #         config.alicloud_configs = json.dumps(data["alicloud"])
+    #     if not getattr(config, "jihulab", None) and "jihulab" in data:
+    #         config.jihulab = json.dumps(data["jihulab"])
+    #     if not getattr(config, "virustotal", None) and "virustotal" in data:
+    #         config.virustotal = json.dumps(data["virustotal"])
+    #     if not getattr(config, "host", None) and "host" in data:
+    #         config.host = data["host"]
+    #     if not getattr(config, "port", None) and "port" in data:
+    #         config.port = data["port"]
     check_config(parser,config)
     return config
 

@@ -1,19 +1,7 @@
 
 import sys
-
-
-
-
 from auto_MCP_manager import AutoMCPManager
 from config import parse_cmd_config
-from fastmcp.utilities import logging
-
-logger = logging.get_logger(__name__)
-
-
-
-
-
 
 def main():
     # Config now sourced from K8S env vars / optional secret file (see config.parse_cmd_config)

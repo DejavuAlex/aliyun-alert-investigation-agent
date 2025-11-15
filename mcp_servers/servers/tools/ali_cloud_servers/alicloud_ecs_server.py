@@ -469,7 +469,7 @@ class ALI_CLOUD_ECS(BaseServer):
                 instance_id: str,
         ) -> str:
             """
-            查询命令执行结果
+            查询命令执行结果，注意控制command_id的size，不能超过18KB
 
             Args:
                 access_key_id: 使用哪个账号下的access_key_id来调用接口
