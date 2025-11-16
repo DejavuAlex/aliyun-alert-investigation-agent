@@ -68,6 +68,12 @@ class ExtArgumentParser(configargparse.ArgumentParser):
             help="VirusTotal config JSON (from K8S secret env var VIRUSTOTAL_CONFIG)",
             dest="virustotal",
         )
+        self.add(
+            "--cloudflare",
+            env_var="CLOUDFLARE_CONFIG",
+            help="Cloudflare config JSON (from K8S secret env var CLOUDFLARE_CONFIG)",
+            dest="cloudflare",
+        )
 
 
 

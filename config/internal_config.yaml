@@ -9,6 +9,7 @@ mcp_debug: true
 host: "0.0.0.0"
 port: 8000
 
+# cmd line args无法接收list类型的参数，所以这里用字符串表示list，只接收dict
 #alicloud:
 #  - account_id: "1219234893152666"
 #    access_key_id: "YOUR_ACCESS_KEY_ID"
@@ -25,4 +26,10 @@ jihulab:
 #virustotal:
 #    api_key: "YOUR_VIRUSTOTAL_API_KEY"
 #
-virustotal: {api_key: "YOUR_VIRUSTOTAL_API_KEY"}
+virustotal:
+  api_key: "YOUR_VIRUSTOTAL_API_KEY"
+
+# 以下两种方式都可以
+#cloudflare: '{"api_token": "YOUR_CLOUDFLARE_TOKEN"}'
+cloudflare:
+  api_token: "YOUR_CLOUDFLARE_TOKEN"

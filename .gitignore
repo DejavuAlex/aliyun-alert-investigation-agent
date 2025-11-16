@@ -1,2 +1,5 @@
 .DS_Store
-**/*.pyc
+tests
+*.pyc
+__pycache__
+app.log
