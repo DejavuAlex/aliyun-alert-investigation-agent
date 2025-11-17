@@ -11,7 +11,6 @@ class ALICLOUD_WEBSHELL_PROMPT(BaseServer,PromptMixin):
         self.setup_server()
 
     def setup_server(self):
-        return
         @self.mcp_instance.tool
         def analyze_webshell_prompt() -> PromptMessage:
             """ 这是一个专门调查阿里云网站后门类安全事件的模版prompt

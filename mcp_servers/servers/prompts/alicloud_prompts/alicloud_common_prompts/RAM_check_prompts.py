@@ -15,7 +15,7 @@ class ALICLOUD_RAM_CHECK_PROMPT(BaseServer):
         def AK_leak_check(
                 AK:str
         ):
-            f"""
+            """
                 本prompt需要输入AK，查询该AK是否泄露
             """
             FUNCTION = f"""
@@ -104,7 +104,7 @@ class ALICLOUD_RAM_CHECK_PROMPT(BaseServer):
                 ip_address:str
 
         ) -> SyncPromptResult:
-            f""" 本prompt用来根据action_trail日志里面提供的{ram_name}和{event_trigger_time}，查询ram_nem是一个RAM用户，还是RAM角色，如果是RAM角色，则溯源该RAM角色的调用者，调用者调用{ram_name}的时间点必须早于{event_trigger_time},并且IP地址要和{ip_address}相同
+            """ 本prompt用来根据action_trail日志里面提供的ram_name和event_trigger_time，查询ram_nem是一个RAM用户，还是RAM角色，如果是RAM角色，则溯源该RAM角色的调用者，调用者调用{ram_name}的时间点必须早于{event_trigger_time},并且IP地址要和{ip_address}相同
                 Args:
                     event_trigger_time
                 Returns:
