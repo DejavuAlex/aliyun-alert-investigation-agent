@@ -1,4 +1,3 @@
-
 import sys
 from auto_MCP_manager import AutoMCPManager
 from config import parse_cmd_config

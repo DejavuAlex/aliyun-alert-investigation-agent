@@ -1,5 +1,5 @@
 
-#llm:
+# llm:
 #  api_key: "YOUR_LLM_API_KEY"
 #  model: "gpt-4"
 
@@ -15,7 +15,8 @@ port: 8000
 #    access_key_id: "YOUR_ACCESS_KEY_ID"
 #    access_key_secret: "YOUR_ACCESS_KEY_SECRET"
 #    region_id: "cn-shanghai"
-alicloud: '[{"account_id": "1219234893152666", "access_key_id": "YOUR_ACCESS_KEY_ID", "access_key_secret": "YOUR_ACCESS_KEY_SECRET", "region_id": "cn-shanghai"}]'
+alicloud: '[{"account_id": "18988995841626980", "access_key_id": "YOUR_ACCESS_KEY_ID", "access_key_secret": "YOUR_ACCESS_KEY_SECRET", "region_id": "cn-shanghai"}]'
+# alicloud: '[{"account_id": "1219234893152666", "access_key_id": "YOUR_ACCESS_KEY_ID", "access_key_secret": "YOUR_ACCESS_KEY_SECRET", "region_id": "cn-shanghai"}]'
 
 jihulab:
   url: "https://jihulab.com/api/v4"
