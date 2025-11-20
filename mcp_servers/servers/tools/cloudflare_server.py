@@ -122,15 +122,15 @@ class CLOUDFLLARE_SERVER(BaseServer):
         @self.mcp_instance.tool
         def get_all_zones():
             """
-            获取所有Cloudflare zones
+            获取所有Cloudflare zones,返回zone id,zone name,所属的account id and account name
             Returns:
                 list:
                 [
                     {
                         "zone_id": "zone_id_value",
-                        "account_id": {
-                            "id":"account_id_value",
-                            "name":"account_name_value"
+                        "zone_name": "zone_name_value",
+                        "account_id": "account_id_value",
+                        "account_name":"account_name_value"
                             }
                     },
                     ...
@@ -139,7 +139,7 @@ class CLOUDFLLARE_SERVER(BaseServer):
 
             """
             page = self.client.zones.list()
-            return  [ {"zone_id":result.id,"account":result.account} for result in page.result]
+            return  [ {"zone_id":result.id,"zone_name": result.name,"account_id":result.account.id, "acount_name":result.account.name} for result in page.result]
 
         """
         {
@@ -227,11 +227,7 @@ class CLOUDFLLARE_SERVER(BaseServer):
                 except ValueError:
                     return False
 
-
-
-            page = self.client.dns.records.list(zone_id=zone_id)
-            dns_records = []
-            for record in page.result:
+            def is_public_record(record) -> bool:
                 record_type = record.type
                 if record_type in ["A", "AAAA"]:
                     return is_public_ip(record.content)
@@ -244,208 +240,23 @@ class CLOUDFLLARE_SERVER(BaseServer):
                                 return True
                         return False
                     except Exception as e:
-                        logger.error("DNS resolution error for CNAME %s: %s", record.content, str(e))
+                        print("DNS resolution error for CNAME %s: %s", record.content, str(e))
                         return False
 
+            page = self.client.dns.records.list(zone_id="e65ba0a33439893bec93508bbf9e9868")
+            dns_records = []
+            for record in page.result:
                 dns_records.append({
                     "id": record.id,
                     "name": record.name,
                     "type": record.type,
                     "content": record.content,
                     "proxied": record.proxied,
-                    "is_internet_accessible": is_public_ip(record.content) if record.type in ["A", "AAAA","CNAME"] else None
+                    "is_internet_accessible": is_public_record(record) if record.type in ["A", "AAAA",
+                                                                                          "CNAME"] else None
                 })
+                print("dns record info: {}".format(dns_records))
             return dns_records
-
-        # """
-        # {
-        #   "errors": [
-        #     {
-        #       "message": "something bad happened",
-        #       "code": 10000,
-        #       "source": {
-        #         "pointer": "/rules/0/action"
-        #       }
-        #     }
-        #   ],
-        #   "messages": [
-        #     {
-        #       "message": "something bad happened",
-        #       "code": 10000,
-        #       "source": {
-        #         "pointer": "/rules/0/action"
-        #       }
-        #     }
-        #   ],
-        #   "result": [
-        #     {
-        #       "id": "2f2feab2026849078ba485f918791bdc",
-        #       "kind": "root",
-        #       "last_updated": "2000-01-01T00:00:00.000000Z",
-        #       "name": "My ruleset",
-        #       "phase": "http_request_firewall_custom",
-        #       "version": "1",
-        #       "description": "A description for my ruleset."
-        #     }
-        #   ],
-        #   "success": true,
-        #   "result_info": {
-        #     "cursors": {
-        #       "after": "dGhpc2lzYW5leGFtcGxlCg"
-        #     }
-        #   }
-        # }
-        # """
-        # @self.mcp_instance.tool
-        # def list_account_rulesets(account_id: str):
-        #     """
-        #     列出指定account的所有rulesets
-        #     Args:
-        #         account_id (str): Cloudflare Account ID
-        #     Returns:
-        #         list:
-        #         [
-        #             {
-        #                 "id": "ruleset_id_value",
-        #                 "kind": "root",
-        #                 "name": "ruleset_name_value",
-        #                 "phase": "http_request_firewall_custom",
-        #                 "version": "1",
-        #                 "description": "ruleset_description_value"
-        #             },
-        #             ...
-        #         ]
-        #     """
-        #     page = self.client.rulesets.list(account_id=account_id)
-        #     return [ {"id":result.id,
-        #               "kind":result.kind,
-        #               "name":result.name,
-        #               "phase":result.phase,
-        #               "version":result.version,
-        #               "description":result.description
-        #               } for result in page.result]
-
-#         """
-#         {
-#   "errors": [
-#     {
-#       "message": "something bad happened",
-#       "code": 10000,
-#       "source": {
-#         "pointer": "/rules/0/action"
-#       }
-#     }
-#   ],
-#   "messages": [
-#     {
-#       "message": "something bad happened",
-#       "code": 10000,
-#       "source": {
-#         "pointer": "/rules/0/action"
-#       }
-#     }
-#   ],
-#   "result": {
-#     "id": "2f2feab2026849078ba485f918791bdc",
-#     "kind": "root",
-#     "last_updated": "2000-01-01T00:00:00.000000Z",
-#     "name": "My ruleset",
-#     "phase": "http_request_firewall_custom",
-#     "rules": [
-#       {
-#         "last_updated": "2000-01-01T00:00:00.000000Z",
-#         "version": "1",
-#         "id": "3a03d665bac047339bb530ecb439a90d",
-#         "action": "block",
-#         "action_parameters": {
-#           "response": {
-#             "content": "{\n  \"success\": false,\n  \"error\": \"you have been blocked\"\n}",
-#             "content_type": "application/json",
-#             "status_code": 400
-#           }
-#         },
-#         "categories": [
-#           "directory-traversal"
-#         ],
-#         "description": "Block the request.",
-#         "enabled": true,
-#         "exposed_credential_check": {
-#           "password_expression": "url_decode(http.request.body.form[\\\"password\\\"][0])",
-#           "username_expression": "url_decode(http.request.body.form[\\\"username\\\"][0])"
-#         },
-#         "expression": "ip.src eq 1.1.1.1",
-#         "logging": {
-#           "enabled": true
-#         },
-#         "ratelimit": {
-#           "characteristics": [
-#             "cf.colo.id"
-#           ],
-#           "period": 60,
-#           "counting_expression": "http.request.body.raw eq \"abcd\"",
-#           "mitigation_timeout": 600,
-#           "requests_per_period": 1000,
-#           "requests_to_origin": true,
-#           "score_per_period": 400,
-#           "score_response_header_name": "my-score"
-#         },
-#         "ref": "my_ref"
-#       }
-#     ],
-#     "version": "1",
-#     "description": "A description for my ruleset."
-#   },
-#   "success": true
-# }
-#         """
-#         @self.mcp_instance.tool
-#         def list_rules_from_account_rulesets(account_id: str, ruleset_id: str):
-#             """
-#             获取指定account的指定ruleset的详细信息
-#             Args:
-#                 account_id (str): Cloudflare Account ID
-#                 ruleset_id (str): Cloudflare Ruleset ID
-#             Returns:
-#                 dict:
-#                 {
-#                     "id": "ruleset_id_value",
-#                     "kind": "root",
-#                     "name": "ruleset_name_value",
-#                     "phase": "http_request_firewall_custom",
-#                     "version": "1",
-#                     "description": "ruleset_description_value",
-#                     "rules": [
-#                         {
-#                             "id": "rule_id_value",
-#                             "action": "block",
-#                             "expression": "ip.src eq
-#                             ...",
-#                             ...
-#                         },
-#                         ...
-#                     ]
-#                 }
-#             """
-#             result = self.client.rulesets.get(account_id=account_id, ruleset_id=ruleset_id)
-#             rules = []
-#             for rule in result.rules:
-#                 rules.append({
-#                     "id": rule.id,
-#                     "action": rule.action,
-#                     "expression": rule.expression,
-#                     "description": rule.description,
-#                     "enabled": rule.enabled,
-#                     # Add other fields as needed
-#                 })
-#             return {
-#                 "id": result.id,
-#                 "kind": result.kind,
-#                 "name": result.name,
-#                 "phase": result.phase,
-#                 "version": result.version,
-#                 "description": result.description,
-#                 "rules": rules
-#             }
 
 
         """
@@ -522,11 +333,11 @@ class CLOUDFLLARE_SERVER(BaseServer):
         }
         """
         @self.mcp_instance.tool
-        def get_rules_from_custom_rulesets(account_id: str):
+        def get_rules_from_custom_rulesets(zone_id: str):
             """
-            获取指定account的自定义http_request_firewall_custom ruleset的所有规则,这些规则通常是域名的访问控制策略，查询访问控制策略，可以描述该域名可以被容许访问的源IP网段及user agent等信息
+            获取指定zone的自定义http_request_firewall_custom ruleset的所有规则,这些规则通常是域名的访问控制策略，查询访问控制策略，可以描述该域名可以被容许访问的源IP网段及user agent等信息
             Args:
-                account_id (str): Cloudflare Account ID
+                zone_id (str): Cloudflare zone ID
             Returns:
                 dict:
                 {
@@ -547,7 +358,7 @@ class CLOUDFLLARE_SERVER(BaseServer):
             """
             phase = self.client.rulesets.phases.get(
                 ruleset_phase="http_request_firewall_custom",
-                account_id=account_id
+                zone_id=zone_id
                 )
             ruleset_phase = phase.phase
             ruleset_name = phase.name

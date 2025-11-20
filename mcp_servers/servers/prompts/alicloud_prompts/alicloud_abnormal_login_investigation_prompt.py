@@ -14,7 +14,6 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
 
     def setup_server(self):
 
-        return
         @self.mcp_instance.tool
         def analyze_weak_password_prompt() -> PromptMessage:
             """  这是一个专门调查阿里云通过弱密码登录阿里云资源(e.g. ECS, RDS)安全事件的模版prompt

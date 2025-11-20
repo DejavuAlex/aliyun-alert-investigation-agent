@@ -11,7 +11,6 @@ class ALICLOUD_KUBERNETES_PROMPTS(BaseServer,PromptMixin):
         self.setup_server()
 
     def setup_server(self):
-        return
         @self.mcp_instance.tool
         def api_server_investigation_prompt() -> PromptMessage:
             """

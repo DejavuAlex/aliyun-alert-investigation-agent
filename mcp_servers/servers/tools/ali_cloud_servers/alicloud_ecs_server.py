@@ -486,7 +486,9 @@ class ALI_CLOUD_ECS(BaseServer):
                 region_id: str,
                 command_id: str,
                 instance_id: str,
-                invoke_id: str
+                invoke_id: str,
+                nextToken: str = None,
+                maxResults: int = 50,
         ) -> str:
             """
             查询命令执行结果
@@ -508,6 +510,9 @@ class ALI_CLOUD_ECS(BaseServer):
                 region_id: 实例所属的地域ID，如cn-hangzhou
                 command_id: 运行命令时返回的commandId
                 instance_id: ECS实例ID
+                invoke_id: 运行命令时返回的invokeId
+                nextToken: 分页查询时的查询凭证
+                maxResults: 每页最大条目数（<=50）
 
             Returns:
                 str: 返回的是命令执行结果，用Base64编码，需要解码后查看
@@ -520,6 +525,8 @@ class ALI_CLOUD_ECS(BaseServer):
                     region_id=region_id,
                     content_encoding="Base64",
                     invoke_id=invoke_id,
+                    max_results=maxResults,
+                    next_token=nextToken,
                 )
                 response: ecs_20140526_models.DescribeInvocationResultsResponse = await ecs_client.describe_invocation_results_with_options_async(
                     request,

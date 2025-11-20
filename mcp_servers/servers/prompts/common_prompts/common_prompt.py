@@ -9,7 +9,6 @@ class Ali_CLOUD_EVENT_PROMPT(BaseServer):
         self.setup_server()
 
     def setup_server(self):
-        return
         @self.mcp_instance.tool
         async def describe_mandatory_rules_prompt():
             """
