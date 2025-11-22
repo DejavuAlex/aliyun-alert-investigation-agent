@@ -55,6 +55,7 @@ class Ali_CLOUD_EVENT_PROMPT(BaseServer):
             - 工具成功时清晰列出获取的关键信息
             - 工具失败时说明限制并尝试基于已有信息推断
             - 保持调查逻辑的可追溯性和真实性
+            - 当输入拥有足够信息的时候，不要重复让用户输入内容
             """
             return prompt
 

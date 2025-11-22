@@ -177,8 +177,8 @@ class ALI_CLOUD_SECURITY_CENTER(BaseServer):
 
             Returns:
                 dict: 包含告警事件信息的字典，包含以下字段：
-                    - CurrentPage: 当前页码
-                    - PageSize: 每页大小
+                    - current_page: 当前页码
+                    - page_size: 每页大小
                     - RequestId: 请求ID
                     - TotalCount: 告警事件总数
                     - Count: 当前页数据条数
@@ -363,3 +363,158 @@ class ALI_CLOUD_SECURITY_CENTER(BaseServer):
             except Exception as e:
                 logger.error(f"DescribeSuspEventDetail failed: {str(e)}")
                 return {"error": str(e)}
+            
+        @self.mcp_instance.tool
+        async def list_check_item_warning_summary(
+                access_key_id: str,
+                region_id: str,
+
+                # 分页参数
+                page_size: int = 20,
+                current_page: int = 1,
+
+                check_item_type: str = None,
+                lang: str = "zh",
+                source_ip: str = None,
+                resource_directory_account_id: int = None,
+        ) -> dict:
+            """
+            查询云安全中心基线检测结果
+
+            Args:
+                access_key_id (str): Aliyun access key id
+                region_id (str): Aliyun region id
+
+                check_item_type (str): 检测项类型
+                lang (str): 请求和接收消息的语言类型，默认"zh"（zh-中文/en-英文）
+                source_ip (str): 访问源IP地址
+                resource_directory_account_id (int): 资源目录成员主账号ID
+
+            Returns:
+                dict: 包含检测项告警汇总信息的字典，包含以下字段：
+                    - RequestId: 请求ID
+                    - CheckIdList: 检查项ID列表（用于调用 ListCheckItemWarningMachine）
+                    - List: 检查项告警汇总列表，每个元素包含：
+                        - check_id: 检查项ID
+                        - CheckItem: 检查项名称
+                        - CheckLevel: 风险等级（high / medium / low）
+                        - CheckType: 检查项类型（如：入侵防范）
+                        - ContainerCheckItem: 是否为容器相关检查项
+                        - Status: 检测项状态（1-启用，0-禁用）
+                        - WarningMachineCount: 存在告警的服务器数量
+                        - Description: 检查项描述
+                        - Advice: 修复建议
+                        - EnableRisks: 关联的启用风险基线列表
+                        - AffiliatedRisks: 所属风险基线列表
+                        - AffiliatedRiskTypes: 所属风险类型列表
+
+            Example:
+                >>> result = await list_check_item_warning_summary(
+                ...     check_id = 697 ,
+                ...     CheckItem = "Redis弱口令"
+                        CheckLevel = "high"
+                        CheckType = "入侵防范"
+                        WarningMachineCount = "1"
+                ...     Advice = "xxx")
+            """
+            try:
+                sc_client = self.initialize_client_4_specific_region(access_key_id, region_id)
+
+                # 构建请求参数
+                request_params = {
+                    "lang": lang,
+                    "current_page": current_page,
+                    "page_size": min(page_size, 100),
+                }
+
+                # 添加可选参数
+                if check_item_type:
+                    request_params["CheckItemType"] = check_item_type
+
+                if source_ip:
+                    request_params["SourceIp"] = source_ip
+
+                if resource_directory_account_id:
+                    request_params["ResourceDirectoryAccountId"] = resource_directory_account_id
+
+                request = sas_models.ListCheckItemWarningSummaryRequest(**request_params)
+                runtime = tea_models.RuntimeOptions()
+
+                response = sc_client.list_check_item_warning_summary_with_options(request, runtime)
+
+                return response.to_map()
+
+            except Exception as e:
+                logger.error(f"ListCheckItemWarningSummary failed: {str(e)}")
+                return {"error": str(e)}
+            
+
+        @self.mcp_instance.tool
+        async def list_check_item_warning_machine(
+                access_key_id: str,
+                region_id: str,
+                page_size: int = 20,
+                current_page: int = 1,
+                check_id: int = None,
+                lang: str = "zh",
+                source_ip: str = None,
+                resource_directory_account_id: int = None,
+        ) -> dict:
+            """
+            查询指定基线检测项下存在告警的服务器列表
+
+            Args:
+                access_key_id (str): Aliyun access key id
+                region_id (str): Aliyun region id
+
+                check_id (int): 检查项ID（必填）
+                lang (str): 请求和返回语言，默认 zh（zh-中文 / en-英文）
+                source_ip (str): 请求来源IP地址
+                resource_directory_account_id (int): 资源目录成员主账号ID
+                current_page (int): 当前页码，默认 1
+                page_size (int): 每页条数，默认 10
+
+            Returns:
+                dict: 返回服务器告警列表，常见字段包括：
+                    - RequestId: 请求ID
+                    - PageInfo: 分页信息
+                    - MachineList: 告警服务器列表
+                        - InstanceId: 实例ID
+                        - Uuid: 服务器UUID
+                        - InternetIp: 公网IP
+                        - IntranetIp: 内网IP
+                        - InstanceName: 实例名称
+                        - Status: 当前告警状态
+                        - RiskLevel: 风险等级
+                        - LastCheckTime: 最近检查时间
+            """
+
+            try:
+                sc_client = self.initialize_client_4_specific_region(access_key_id, region_id)
+
+                # 构建请求参数
+                request_params = {
+                    "check_id": check_id,
+                    "lang": lang,
+                    "current_page": current_page,
+                    "page_size": min(page_size, 100),
+                }
+
+                # 添加可选参数
+                if source_ip:
+                    request_params["SourceIp"] = source_ip
+
+                if resource_directory_account_id:
+                    request_params["ResourceDirectoryAccountId"] = resource_directory_account_id
+
+                request = sas_models.ListCheckItemWarningMachineRequest(**request_params)
+                runtime = tea_models.RuntimeOptions()
+
+                response = sc_client.list_check_item_warning_machine_with_options(request, runtime)
+
+                return response.to_map()
+
+            except Exception as e:
+                logger.error(f"ListCheckItemWarningMachine failed: {str(e)}")
+                return {"error": str(e)}
+

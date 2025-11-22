@@ -92,9 +92,13 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             
             **6️⃣ 步骤6：制定处置建议**
             - 📝 分析描述: {step6_description}
+
+            **7️⃣ 步骤7：资产基线安全评估**
+            - 📝 分析描述: {step8_description}
             
-            **7️⃣ 步骤7：识别工具改进需求**
+            **8️⃣ 步骤8：识别工具改进需求**
             - 📝 分析描述: {step7_description}
+
             
             ## 🔍 关键发现
             {key_findings}
@@ -149,6 +153,24 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             - 分析会话期间的操作记录：命令执行、文件访问等
             
             - 评估是否存在后续攻击行为（如木马植入、权限提升）
+
+            【若为密码登录，必须执行以下专项核查】
+            - 确认 login_method 是否为“密码登录”；如非密码登录，在报告中注明并跳过本专项
+            - Linux 取证：
+              - 检查 /var/log/secure 或 /var/log/auth.log 的登录事件与失败次数（含时间窗口）
+              - 审核 /etc/ssh/sshd_config：PasswordAuthentication、PermitRootLogin、MaxAuthTries、LoginGraceTime
+              - 检查 PAM/账户策略：faillock/pam_tally2、密码复杂度（minlen、class）、历史记忆、账户锁定
+              - 核验登录用户与特权使用：sudo/su 轨迹、last/lastlog、who、w
+            - Windows 取证：
+              - 事件日志 ID：4624（成功）、4625（失败）、4776（域验证）、4768/4769（Kerberos），RDP 相关日志
+              - 本地/域账户策略：密码复杂度、最小长度、锁定阈值、MFA/二次验证启用状态
+            - 弱口令与爆破判断：
+              - 结合失败次数、时间密度、源 IP 地理/ASN 分布判断是否爆破
+              - 检查常见弱口令/凭据重用迹象（字典化、同账号多处成功）
+            - 工具调用建议（如可用）：
+              - 调用云安全中心（SAS）接口查询“弱口令/暴力破解/异常登录”相关事件与详情
+              - 调用 ECS 安全组/暴露面工具确认是否对密码登录暴露了高危端口（22/3389 等）
+              - 源 IP 为公网时调用 IP 情报工具（VirusTotal/IP 调查 Prompt）进行信誉评估
             
             - 将完整的分析过程和执行结果写入：{step2_description}
             
@@ -211,15 +233,37 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             
             - 将最终的处置建议列表写入：{action_items}
             
-            步骤7：识别工具改进需求
+            步骤7：资产基线安全评估
+
+            目标：补充资产在登录安全事件之外的整体基线安全水平评估，作为是否存在长期安全隐患的重要参考。
+
+            分析任务包括：
+
+            - 调用阿里云云安全中心【系统基线风险】相关接口或工具，获取该资产的基线安全检测结果
+            - 如果查到资产有对应异常登录相关基线的check_id, 需要深入钻取到机器用户侧
+            - 重点关注以下维度：
+            - 身份认证安全：是否存在弱口令、默认账号未禁用、多余账号
+            - 系统更新情况：是否长期未打补丁或存在高危系统漏洞
+            - 危险端口检查：是否开放非业务必要端口（如 23/135/445/3389 等）
+            - 安全加固状态：是否启用主机防护、防病毒、防篡改、防爆破等能力
+            - 基线风险项数量：高危 / 中危 / 低危数量统计
+
+            输出要求：
+
+            - 将资产基线安全整体评估结果写入：{step7_description}
+
+            - 将具体的工具规格要求写入：{to_be_setup_tools}
+
+            步骤8：识别工具改进需求
             
             - 分析调查过程中缺失的工具能力
             
             - 描述需要建立的工具名称、功能、输入输出参数
             
-            - 将完整的工具需求分析写入：{step7_description}
+            - 将完整的工具需求分析写入：{step8_description}
             
             - 将具体的工具规格要求写入：{to_be_setup_tools}
+
             """
 
             prompt = f"""
@@ -243,465 +287,465 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
                     text=prompt)
             )
 
-        @self.mcp_instance.tool
-        def analyze_process_exception_prompt() -> PromptMessage:
-            """  这是一个专门调查阿里云进程异常行为安全事件的模版prompt
-            :arg
-                mandatory_rules: str, the mandatory rules prompt, 本地工具库中提供了该prompt
-                constraints: str, the constraints prompt, 本地工具库中提供了该prompt
-            :return
-                alicloud_abonormal_process_behavior_prompt:str , the prompt used by investigate alicloud process exception security event
+        # @self.mcp_instance.tool
+        # def analyze_process_exception_prompt() -> PromptMessage:
+        #     """  这是一个专门调查阿里云进程异常行为安全事件的模版prompt
+        #     :arg
+        #         mandatory_rules: str, the mandatory rules prompt, 本地工具库中提供了该prompt
+        #         constraints: str, the constraints prompt, 本地工具库中提供了该prompt
+        #     :return
+        #         alicloud_abonormal_process_behavior_prompt:str , the prompt used by investigate alicloud process exception security event
 
-            """
-            FUNCTION = """
-            你是一个云安全智能体（Cloud Security Agent），专门负责对阿里云'进程异常行为'进行调查与响应。
-            你需要基于安全告警原始数据（如异常登录、可疑进程、恶意文件、端口扫描、C2通信等），执行系统性分析，判断是否为真实攻击行为，并输出结构化调查报告与应急处置建议。
-            """
+        #     """
+        #     FUNCTION = """
+        #     你是一个云安全智能体（Cloud Security Agent），专门负责对阿里云'进程异常行为'进行调查与响应。
+        #     你需要基于安全告警原始数据（如异常登录、可疑进程、恶意文件、端口扫描、C2通信等），执行系统性分析，判断是否为真实攻击行为，并输出结构化调查报告与应急处置建议。
+        #     """
 
-            AUDIENCE = """
-            - 云安全工程师
-            """
+        #     AUDIENCE = """
+        #     - 云安全工程师
+        #     """
 
-            # TEMPLATE = """
-            # # 🛡️ 阿里云安全事件中心 - 进程异常行为安全事件调查报告
-            #
-            # ## 📋 事件摘要
-            #
-            # **🔹 基本信息**
-            # - 🚨 告警名称: {event_name}
-            # - ⚠️ 紧急程度: {event_level}
-            # - 🆔 告警ID: {event_id}
-            # - 📊 告警类型: {event_type}
-            # - 📍 状态: {event_status}
-            # - 🎯 攻击阶段: {attacking_phase}
-            # - 🔍 检测模式: {detection_mode}
-            #
-            # **🔹 进程信息**
-            # - 🔧 进程ID: {process_id}
-            # - ⏰ 进程启动时间: {process_start_time}
-            # - 📁 进程路径: {process_path}
-            # - 💻 命令行: {cmd_line}
-            # - 👤 用户名: {user_name}
-            #
-            # **🔹 父进程信息**
-            # - 🔗 父进程ID: {parent_process_id}
-            # - 📂 父进程路径: {parent_process_path}
-            # - ⌨️ 父进程命令行: {parent_cmd_line}
-            #
-            # **🔹 Kubernetes环境**
-            # - 🏷️ K8s命名空间: {kubernetes_namespace}
-            # - 🖥️ K8s节点名称: {kubernetes_node}
-            # - 📦 K8s Pod: {kubernetes_pod}
-            # - 🐳 容器名: {pod_name}
-            # - 🆔 容器ID: {pod_id}
-            # - 🖼️ 镜像名: {image_name}
-            # - 🆔 镜像ID: {image_id}
-            #
-            # **🔹 进程链**
-            # - ⛓️ 进程链: {process_chain}
-            #
-            # **🔹 资产信息**
-            # - 💻 受影响资产: {instance_id}
-            # - 🏷️ 资产名称: {instance_name}
-            # - 🌐 资产内网IP: {private_ip}
-            # - 🌍 资产公网IP: {public_ip}
-            # - 💾 资产操作系统: {os_name}
-            # - 📍 资产区域: {region}
-            # - 🛡️ 资产安全组: {security_group}
-            # - 🏷️ 资产标签: {instance_tags}
-            #
-            # **🔹 业务上下文**
-            # - 📦 所属产品线: {product_name}
-            # - 🌿 所属环境: {env}
-            #
-            # ## 🔎 调查过程
-            #
-            # **1️⃣ 步骤1：解析告警上下文**
-            # - 📝 分析描述: {step1_description}
-            # - 🛠️ 使用工具: {step1_tool_status}
-            #
-            # **2️⃣ 步骤2：分析来源IP威胁情报**
-            # - 📝 分析描述: {step2_description}
-            # - 🛠️ 使用工具: {step2_tool_status}
-            #
-            # **3️⃣ 步骤3：检查ECS实例暴露面**
-            # - 📝 分析描述: {step3_description}
-            # - 🛠️ 使用工具: {step3_tool_status}
-            #
-            # **4️⃣ 步骤4：检查ECS实例异常活动**
-            # - 📝 分析描述: {step4_description}
-            # - 🛠️ 使用工具: {step4_tool_status}
-            #
-            # **5️⃣ 步骤5：分析可疑进程行为**
-            # - 📝 分析描述: {step5_description}
-            # - 🛠️ 使用工具: {step5_tool_status}
-            #
-            # **6️⃣ 步骤6：综合风险评估**
-            # - 📝 分析描述: {step6_description}
-            #
-            # **7️⃣ 步骤7：制定处置建议**
-            # - 📝 分析描述: {step7_description}
-            #
-            # **8️⃣ 步骤8：识别工具改进需求**
-            # - 📝 分析描述: {step8_description}
-            #
-            # ## 🔍 关键发现
-            # {key_findings}
-            #
-            # ## ⚠️ 风险评估
-            # {risk_indicators}
-            #
-            # **📊 综合结论**
-            # - 🎯 风险等级: {risk_level}
-            # - 📌 风险原因: {risk_reason}
-            #
-            # ## 🚀 处置建议
-            # {action_items}
-            #
-            # ## 🛠️ 待建立的工具
-            # {to_be_setup_tools}
-            #
-            # """
-            # Mandatory_RULES = self.mandatory_rules
-            # CONSTRAINTS = self.constraints
-            #
-            # STEPS = """
-            # 请严格按以下步骤执行调查分析，并将每个步骤的输出写入对应的模板变量：
-            #
-            # 1. 步骤1：解析告警上下文
-            #    - 分析关键信息：实例ID、IP地址、端口、文件路径、资产标签等
-            #    - 识别产品线归属：基于instance_tags判断属于algosuite、remix等哪个产品线
-            #    - 识别环境分类：基于env标签判断是prod、staging、dev还是test环境
-            #    - 将分析结果写入：{step1_description}
-            #    - 将使用的工具名称写入：{step1_tool_status}
-            #    - 将关键发现摘要写入：{key_findings}
-            #
-            # 2. 步骤2：分析来源IP的威胁
-            #    - 搜索IP调查工具分析源IP的威胁等级
-            #    - 检查IP的信誉度、历史恶意行为、地理位置风险
-            #    - 评估该IP是否在已知威胁情报库中
-            #    - 将分析结果写入：{step2_description}
-            #    - 将使用的工具名称写入：{step2_tool_status}
-            #    - 将关键发现摘要写入：{key_findings}
-            #
-            # 3. 步骤3：检查受影响的ECS实例暴露面
-            #    - 检查实例是否绑定公网IP及暴露程度
-            #    - 分析安全组策略：开放的高危端口、允许访问的网段
-            #    - 评估安全组设置是否存在风险（如允许任意来源访问）
-            #    - 输出具体的安全组策略ID和规则内容
-            #    - 将分析结果写入：{step3_description}
-            #    - 将使用的工具名称写入：{step3_tool_status}
-            #    - 将关键发现摘要写入：{key_findings}
-            #
-            # 4. 步骤4：检查ECS实例异常活动
-            #    - 如果是容器内的进程异常，需要考虑是否发生容器逃逸，导致宿主机被侵入，所以要检查宿主机相关的异常活动
-            #    - 分析通过workbench/VNC等阿里云支持的浏览器登录ECS的方式做异常登录：通过actiontrail检查ConsoleConnect、VNC登录事件
-            #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
-            #    - 分析通过SSH/RDP等系统方式做的异常登录：检查SSH/RDP登录日志中的异常模式
-            #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
-            #    - 检查堡垒机日志：分析登录时间、IP、失败次数等异常
-            #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
-            #    - 关联其他安全事件：检查是否有其他事件关联到此资产
-            #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
-            #    - 将完整的分析过程和执行结果写入：{step4_description}
-            #    - 将实际使用的工具名称或未使用工具的原因写入：{step4_tool_status}
-            #    - 将关键发现摘要写入：{key_findings}
-            #
-            # 5. 步骤5：分析可疑进程行为
-            #    - 分析进程执行上下文：执行用户、权限级别、运行目的
-            #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
-            #    - 检测异常行为模式：CPU/内存占用、网络连接、文件操作
-            #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
-            #    - 评估进程的合法性和潜在风险
-            #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
-            #    - 将完整的分析过程和执行结果写入：{step5_description}
-            #    - 将实际使用的工具名称或未使用工具的原因写入：{step5_tool_status}
-            #    - 将关键发现摘要写入：{key_findings}
-            #
-            # 6. 步骤6：综合风险评估
-            #    - 整合所有步骤的分析发现
-            #      * 执行结果：必须基于前5个步骤的实际执行情况进行整合
-            #    - 评估整体风险等级：低、中、高、严重
-            #      * 执行结果：必须给出明确的风险等级判断
-            #    - 明确风险评级的关键依据和证据
-            #      * 执行结果：必须列出具体的评估依据
-            #    - 将完整的风险评估过程写入：{step6_description}
-            #    - 将风险等级写入：{risk_level}
-            #    - 将风险原因写入：{risk_reason}
-            #    - 将风险指标写入：{risk_indicators}
-            #
-            # 7. 步骤7：制定处置建议
-            #    - 基于风险评估制定具体处置措施
-            #      * 执行结果：必须给出具体的处置建议
-            #    - 建议包括：网络隔离、访问阻断、密码重置、补丁更新等
-            #      * 执行结果：必须列出具体的处置措施
-            #    - 提供优先级和操作步骤
-            #      * 执行结果：必须明确处置的优先级顺序
-            #    - 将完整的处置建议制定过程写入：{step7_description}
-            #    - 将最终的处置建议列表写入：{action_items}
-            #
-            # 8. 步骤8：识别工具改进需求
-            #    - 分析调查过程中缺失的工具能力
-            #      * 执行结果：必须明确说明哪些工具能力缺失
-            #    - 描述需要建立的工具名称、功能、输入输出参数
-            #      * 执行结果：必须详细描述待建立工具的具体规格
-            #    - 将完整的工具需求分析写入：{step8_description}
-            #    - 将具体的工具规格要求写入：{to_be_setup_tools}
-            # """
-            TEMPLATE = """
-            # 🛡️ 阿里云安全事件中心 - 进程异常行为安全事件调查报告
+        #     # TEMPLATE = """
+        #     # # 🛡️ 阿里云安全事件中心 - 进程异常行为安全事件调查报告
+        #     #
+        #     # ## 📋 事件摘要
+        #     #
+        #     # **🔹 基本信息**
+        #     # - 🚨 告警名称: {event_name}
+        #     # - ⚠️ 紧急程度: {event_level}
+        #     # - 🆔 告警ID: {event_id}
+        #     # - 📊 告警类型: {event_type}
+        #     # - 📍 状态: {event_status}
+        #     # - 🎯 攻击阶段: {attacking_phase}
+        #     # - 🔍 检测模式: {detection_mode}
+        #     #
+        #     # **🔹 进程信息**
+        #     # - 🔧 进程ID: {process_id}
+        #     # - ⏰ 进程启动时间: {process_start_time}
+        #     # - 📁 进程路径: {process_path}
+        #     # - 💻 命令行: {cmd_line}
+        #     # - 👤 用户名: {user_name}
+        #     #
+        #     # **🔹 父进程信息**
+        #     # - 🔗 父进程ID: {parent_process_id}
+        #     # - 📂 父进程路径: {parent_process_path}
+        #     # - ⌨️ 父进程命令行: {parent_cmd_line}
+        #     #
+        #     # **🔹 Kubernetes环境**
+        #     # - 🏷️ K8s命名空间: {kubernetes_namespace}
+        #     # - 🖥️ K8s节点名称: {kubernetes_node}
+        #     # - 📦 K8s Pod: {kubernetes_pod}
+        #     # - 🐳 容器名: {pod_name}
+        #     # - 🆔 容器ID: {pod_id}
+        #     # - 🖼️ 镜像名: {image_name}
+        #     # - 🆔 镜像ID: {image_id}
+        #     #
+        #     # **🔹 进程链**
+        #     # - ⛓️ 进程链: {process_chain}
+        #     #
+        #     # **🔹 资产信息**
+        #     # - 💻 受影响资产: {instance_id}
+        #     # - 🏷️ 资产名称: {instance_name}
+        #     # - 🌐 资产内网IP: {private_ip}
+        #     # - 🌍 资产公网IP: {public_ip}
+        #     # - 💾 资产操作系统: {os_name}
+        #     # - 📍 资产区域: {region}
+        #     # - 🛡️ 资产安全组: {security_group}
+        #     # - 🏷️ 资产标签: {instance_tags}
+        #     #
+        #     # **🔹 业务上下文**
+        #     # - 📦 所属产品线: {product_name}
+        #     # - 🌿 所属环境: {env}
+        #     #
+        #     # ## 🔎 调查过程
+        #     #
+        #     # **1️⃣ 步骤1：解析告警上下文**
+        #     # - 📝 分析描述: {step1_description}
+        #     # - 🛠️ 使用工具: {step1_tool_status}
+        #     #
+        #     # **2️⃣ 步骤2：分析来源IP威胁情报**
+        #     # - 📝 分析描述: {step2_description}
+        #     # - 🛠️ 使用工具: {step2_tool_status}
+        #     #
+        #     # **3️⃣ 步骤3：检查ECS实例暴露面**
+        #     # - 📝 分析描述: {step3_description}
+        #     # - 🛠️ 使用工具: {step3_tool_status}
+        #     #
+        #     # **4️⃣ 步骤4：检查ECS实例异常活动**
+        #     # - 📝 分析描述: {step4_description}
+        #     # - 🛠️ 使用工具: {step4_tool_status}
+        #     #
+        #     # **5️⃣ 步骤5：分析可疑进程行为**
+        #     # - 📝 分析描述: {step5_description}
+        #     # - 🛠️ 使用工具: {step5_tool_status}
+        #     #
+        #     # **6️⃣ 步骤6：综合风险评估**
+        #     # - 📝 分析描述: {step6_description}
+        #     #
+        #     # **7️⃣ 步骤7：制定处置建议**
+        #     # - 📝 分析描述: {step7_description}
+        #     #
+        #     # **8️⃣ 步骤8：识别工具改进需求**
+        #     # - 📝 分析描述: {step8_description}
+        #     #
+        #     # ## 🔍 关键发现
+        #     # {key_findings}
+        #     #
+        #     # ## ⚠️ 风险评估
+        #     # {risk_indicators}
+        #     #
+        #     # **📊 综合结论**
+        #     # - 🎯 风险等级: {risk_level}
+        #     # - 📌 风险原因: {risk_reason}
+        #     #
+        #     # ## 🚀 处置建议
+        #     # {action_items}
+        #     #
+        #     # ## 🛠️ 待建立的工具
+        #     # {to_be_setup_tools}
+        #     #
+        #     # """
+        #     # Mandatory_RULES = self.mandatory_rules
+        #     # CONSTRAINTS = self.constraints
+        #     #
+        #     # STEPS = """
+        #     # 请严格按以下步骤执行调查分析，并将每个步骤的输出写入对应的模板变量：
+        #     #
+        #     # 1. 步骤1：解析告警上下文
+        #     #    - 分析关键信息：实例ID、IP地址、端口、文件路径、资产标签等
+        #     #    - 识别产品线归属：基于instance_tags判断属于algosuite、remix等哪个产品线
+        #     #    - 识别环境分类：基于env标签判断是prod、staging、dev还是test环境
+        #     #    - 将分析结果写入：{step1_description}
+        #     #    - 将使用的工具名称写入：{step1_tool_status}
+        #     #    - 将关键发现摘要写入：{key_findings}
+        #     #
+        #     # 2. 步骤2：分析来源IP的威胁
+        #     #    - 搜索IP调查工具分析源IP的威胁等级
+        #     #    - 检查IP的信誉度、历史恶意行为、地理位置风险
+        #     #    - 评估该IP是否在已知威胁情报库中
+        #     #    - 将分析结果写入：{step2_description}
+        #     #    - 将使用的工具名称写入：{step2_tool_status}
+        #     #    - 将关键发现摘要写入：{key_findings}
+        #     #
+        #     # 3. 步骤3：检查受影响的ECS实例暴露面
+        #     #    - 检查实例是否绑定公网IP及暴露程度
+        #     #    - 分析安全组策略：开放的高危端口、允许访问的网段
+        #     #    - 评估安全组设置是否存在风险（如允许任意来源访问）
+        #     #    - 输出具体的安全组策略ID和规则内容
+        #     #    - 将分析结果写入：{step3_description}
+        #     #    - 将使用的工具名称写入：{step3_tool_status}
+        #     #    - 将关键发现摘要写入：{key_findings}
+        #     #
+        #     # 4. 步骤4：检查ECS实例异常活动
+        #     #    - 如果是容器内的进程异常，需要考虑是否发生容器逃逸，导致宿主机被侵入，所以要检查宿主机相关的异常活动
+        #     #    - 分析通过workbench/VNC等阿里云支持的浏览器登录ECS的方式做异常登录：通过actiontrail检查ConsoleConnect、VNC登录事件
+        #     #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
+        #     #    - 分析通过SSH/RDP等系统方式做的异常登录：检查SSH/RDP登录日志中的异常模式
+        #     #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
+        #     #    - 检查堡垒机日志：分析登录时间、IP、失败次数等异常
+        #     #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
+        #     #    - 关联其他安全事件：检查是否有其他事件关联到此资产
+        #     #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
+        #     #    - 将完整的分析过程和执行结果写入：{step4_description}
+        #     #    - 将实际使用的工具名称或未使用工具的原因写入：{step4_tool_status}
+        #     #    - 将关键发现摘要写入：{key_findings}
+        #     #
+        #     # 5. 步骤5：分析可疑进程行为
+        #     #    - 分析进程执行上下文：执行用户、权限级别、运行目的
+        #     #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
+        #     #    - 检测异常行为模式：CPU/内存占用、网络连接、文件操作
+        #     #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
+        #     #    - 评估进程的合法性和潜在风险
+        #     #      * 执行结果：必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
+        #     #    - 将完整的分析过程和执行结果写入：{step5_description}
+        #     #    - 将实际使用的工具名称或未使用工具的原因写入：{step5_tool_status}
+        #     #    - 将关键发现摘要写入：{key_findings}
+        #     #
+        #     # 6. 步骤6：综合风险评估
+        #     #    - 整合所有步骤的分析发现
+        #     #      * 执行结果：必须基于前5个步骤的实际执行情况进行整合
+        #     #    - 评估整体风险等级：低、中、高、严重
+        #     #      * 执行结果：必须给出明确的风险等级判断
+        #     #    - 明确风险评级的关键依据和证据
+        #     #      * 执行结果：必须列出具体的评估依据
+        #     #    - 将完整的风险评估过程写入：{step6_description}
+        #     #    - 将风险等级写入：{risk_level}
+        #     #    - 将风险原因写入：{risk_reason}
+        #     #    - 将风险指标写入：{risk_indicators}
+        #     #
+        #     # 7. 步骤7：制定处置建议
+        #     #    - 基于风险评估制定具体处置措施
+        #     #      * 执行结果：必须给出具体的处置建议
+        #     #    - 建议包括：网络隔离、访问阻断、密码重置、补丁更新等
+        #     #      * 执行结果：必须列出具体的处置措施
+        #     #    - 提供优先级和操作步骤
+        #     #      * 执行结果：必须明确处置的优先级顺序
+        #     #    - 将完整的处置建议制定过程写入：{step7_description}
+        #     #    - 将最终的处置建议列表写入：{action_items}
+        #     #
+        #     # 8. 步骤8：识别工具改进需求
+        #     #    - 分析调查过程中缺失的工具能力
+        #     #      * 执行结果：必须明确说明哪些工具能力缺失
+        #     #    - 描述需要建立的工具名称、功能、输入输出参数
+        #     #      * 执行结果：必须详细描述待建立工具的具体规格
+        #     #    - 将完整的工具需求分析写入：{step8_description}
+        #     #    - 将具体的工具规格要求写入：{to_be_setup_tools}
+        #     # """
+        #     TEMPLATE = """
+        #     # 🛡️ 阿里云安全事件中心 - 进程异常行为安全事件调查报告
 
-            ## 📋 事件摘要
+        #     ## 📋 事件摘要
 
-            **🔹 基本信息**
-            - 🚨 告警名称: {event_name}
-            - ⚠️ 紧急程度: {event_level}
-            - 🆔 告警ID: {event_id}
-            - 📊 告警类型: {event_type}
-            - 📍 状态: {event_status}
-            - 🎯 攻击阶段: {attacking_phase}
-            - 🔍 检测模式: {detection_mode}
+        #     **🔹 基本信息**
+        #     - 🚨 告警名称: {event_name}
+        #     - ⚠️ 紧急程度: {event_level}
+        #     - 🆔 告警ID: {event_id}
+        #     - 📊 告警类型: {event_type}
+        #     - 📍 状态: {event_status}
+        #     - 🎯 攻击阶段: {attacking_phase}
+        #     - 🔍 检测模式: {detection_mode}
 
-            **🔹 进程行为特征**
-            - 🔧 进程ID: {process_id}
-            - ⏰ 进程启动时间: {process_start_time}
-            - 📁 进程路径: {process_path}
-            - 💻 命令行: {cmd_line}
-            - 👤 用户名: {user_name}
-            - 🔐 执行权限: {process_privileges}
-            - 📊 资源占用: {resource_usage}
+        #     **🔹 进程行为特征**
+        #     - 🔧 进程ID: {process_id}
+        #     - ⏰ 进程启动时间: {process_start_time}
+        #     - 📁 进程路径: {process_path}
+        #     - 💻 命令行: {cmd_line}
+        #     - 👤 用户名: {user_name}
+        #     - 🔐 执行权限: {process_privileges}
+        #     - 📊 资源占用: {resource_usage}
 
-            **🔹 进程关系分析**
-            - 🔗 父进程ID: {parent_process_id}
-            - 📂 父进程路径: {parent_process_path}
-            - ⌨️ 父进程命令行: {parent_cmd_line}
-            - ⛓️ 完整进程链: {process_chain}
-            - 🔍 进程树分析: {process_tree_analysis}
+        #     **🔹 进程关系分析**
+        #     - 🔗 父进程ID: {parent_process_id}
+        #     - 📂 父进程路径: {parent_process_path}
+        #     - ⌨️ 父进程命令行: {parent_cmd_line}
+        #     - ⛓️ 完整进程链: {process_chain}
+        #     - 🔍 进程树分析: {process_tree_analysis}
 
-            **🔹 行为异常指标**
-            - 🎯 异常行为模式: {suspicious_patterns}
-            - 🌐 网络连接: {network_connections}
-            - 📁 文件操作: {file_operations}
-            - ⚡ 系统调用: {system_calls}
+        #     **🔹 行为异常指标**
+        #     - 🎯 异常行为模式: {suspicious_patterns}
+        #     - 🌐 网络连接: {network_connections}
+        #     - 📁 文件操作: {file_operations}
+        #     - ⚡ 系统调用: {system_calls}
 
-            **🔹 Kubernetes环境**
-            - 🏷️ K8s命名空间: {kubernetes_namespace}
-            - 🖥️ K8s节点名称: {kubernetes_node}
-            - 📦 K8s Pod: {kubernetes_pod}
-            - 🐳 容器名: {pod_name}
-            - 🆔 容器ID: {pod_id}
-            - 🖼️ 镜像名: {image_name}
-            - 🆔 镜像ID: {image_id}
-            - 🔒 容器安全上下文: {security_context}
+        #     **🔹 Kubernetes环境**
+        #     - 🏷️ K8s命名空间: {kubernetes_namespace}
+        #     - 🖥️ K8s节点名称: {kubernetes_node}
+        #     - 📦 K8s Pod: {kubernetes_pod}
+        #     - 🐳 容器名: {pod_name}
+        #     - 🆔 容器ID: {pod_id}
+        #     - 🖼️ 镜像名: {image_name}
+        #     - 🆔 镜像ID: {image_id}
+        #     - 🔒 容器安全上下文: {security_context}
 
-            **🔹 资产信息**
-            - 💻 受影响资产: {instance_id}
-            - 🏷️ 资产名称: {instance_name}
-            - 🌐 资产内网IP: {private_ip}
-            - 🌍 资产公网IP: {public_ip}
-            - 💾 资产操作系统: {os_name}
-            - 📍 资产区域: {region}
-            - 🛡️ 资产安全组: {security_group}
-            - 🏷️ 资产标签: {instance_tags}
+        #     **🔹 资产信息**
+        #     - 💻 受影响资产: {instance_id}
+        #     - 🏷️ 资产名称: {instance_name}
+        #     - 🌐 资产内网IP: {private_ip}
+        #     - 🌍 资产公网IP: {public_ip}
+        #     - 💾 资产操作系统: {os_name}
+        #     - 📍 资产区域: {region}
+        #     - 🛡️ 资产安全组: {security_group}
+        #     - 🏷️ 资产标签: {instance_tags}
 
-            **🔹 业务上下文**
-            - 📦 所属产品线: {product_name}
-            - 🌿 所属环境: {env}
-            - 🎯 业务关键性: {business_criticality}
+        #     **🔹 业务上下文**
+        #     - 📦 所属产品线: {product_name}
+        #     - 🌿 所属环境: {env}
+        #     - 🎯 业务关键性: {business_criticality}
 
-            ## 🔎 调查过程
+        #     ## 🔎 调查过程
 
-            **1️⃣ 步骤1：告警上下文深度解析**
-            - 📝 分析描述: {step1_description}
-            - 🛠️ 使用工具: {step1_tool_status}
-            - 🔍 关键发现: {step1_findings}
+        #     **1️⃣ 步骤1：告警上下文深度解析**
+        #     - 📝 分析描述: {step1_description}
+        #     - 🛠️ 使用工具: {step1_tool_status}
+        #     - 🔍 关键发现: {step1_findings}
 
-            **2️⃣ 步骤2：进程行为深度分析**
-            - 📝 分析描述: {step2_description}
-            - 🛠️ 使用工具: {step2_tool_status}
-            - 🔍 关键发现: {step2_findings}
+        #     **2️⃣ 步骤2：进程行为深度分析**
+        #     - 📝 分析描述: {step2_description}
+        #     - 🛠️ 使用工具: {step2_tool_status}
+        #     - 🔍 关键发现: {step2_findings}
 
-            **3️⃣ 步骤3：威胁情报关联分析**
-            - 📝 分析描述: {step3_description}
-            - 🛠️ 使用工具: {step3_tool_status}
-            - 🔍 关键发现: {step3_findings}
+        #     **3️⃣ 步骤3：威胁情报关联分析**
+        #     - 📝 分析描述: {step3_description}
+        #     - 🛠️ 使用工具: {step3_tool_status}
+        #     - 🔍 关键发现: {step3_findings}
 
-            **4️⃣ 步骤4：安全暴露面评估**
-            - 📝 分析描述: {step4_description}
-            - 🛠️ 使用工具: {step4_tool_status}
-            - 🔍 关键发现: {step4_findings}
+        #     **4️⃣ 步骤4：安全暴露面评估**
+        #     - 📝 分析描述: {step4_description}
+        #     - 🛠️ 使用工具: {step4_tool_status}
+        #     - 🔍 关键发现: {step4_findings}
 
-            **5️⃣ 步骤5：异常活动调查**
-            - 📝 分析描述: {step5_description}
-            - 🛠️ 使用工具: {step5_tool_status}
-            - 🔍 关键发现: {step5_findings}
+        #     **5️⃣ 步骤5：异常活动调查**
+        #     - 📝 分析描述: {step5_description}
+        #     - 🛠️ 使用工具: {step5_tool_status}
+        #     - 🔍 关键发现: {step5_findings}
 
-            **6️⃣ 步骤6：关联事件分析**
-            - 📝 分析描述: {step6_description}
-            - 🛠️ 使用工具: {step6_tool_status}
-            - 🔍 关键发现: {step6_findings}
+        #     **6️⃣ 步骤6：关联事件分析**
+        #     - 📝 分析描述: {step6_description}
+        #     - 🛠️ 使用工具: {step6_tool_status}
+        #     - 🔍 关键发现: {step6_findings}
 
-            **7️⃣ 步骤7：攻击链重建**
-            - 📝 分析描述: {step7_description}
-            - 🛠️ 使用工具: {step7_tool_status}
-            - 🔍 关键发现: {step7_findings}
+        #     **7️⃣ 步骤7：攻击链重建**
+        #     - 📝 分析描述: {step7_description}
+        #     - 🛠️ 使用工具: {step7_tool_status}
+        #     - 🔍 关键发现: {step7_findings}
 
-            **8️⃣ 步骤8：综合风险评估**
-            - 📝 分析描述: {step8_description}
+        #     **8️⃣ 步骤8：综合风险评估**
+        #     - 📝 分析描述: {step8_description}
 
-            **9️⃣ 步骤9：应急处置建议**
-            - 📝 分析描述: {step9_description}
+        #     **9️⃣ 步骤9：应急处置建议**
+        #     - 📝 分析描述: {step9_description}
 
-            **🔟 步骤10：改进措施识别**
-            - 📝 分析描述: {step10_description}
+        #     **🔟 步骤10：改进措施识别**
+        #     - 📝 分析描述: {step10_description}
 
-            ## 🔍 关键发现汇总
-            {key_findings}
+        #     ## 🔍 关键发现汇总
+        #     {key_findings}
 
-            ## ⚠️ 风险评估矩阵
-            {risk_indicators}
+        #     ## ⚠️ 风险评估矩阵
+        #     {risk_indicators}
 
-            **📊 综合风险结论**
-            - 🎯 风险等级: {risk_level}
-            - 📌 风险评分: {risk_score}/100
-            - 🔥 影响程度: {impact_level}
-            - 📈 置信度: {confidence_level}
-            - 📌 风险原因: {risk_reason}
+        #     **📊 综合风险结论**
+        #     - 🎯 风险等级: {risk_level}
+        #     - 📌 风险评分: {risk_score}/100
+        #     - 🔥 影响程度: {impact_level}
+        #     - 📈 置信度: {confidence_level}
+        #     - 📌 风险原因: {risk_reason}
 
-            ## 🚀 处置行动计划
-            {action_items}
+        #     ## 🚀 处置行动计划
+        #     {action_items}
 
-            ## 🛠️ 能力提升建议
-            {to_be_setup_tools}
+        #     ## 🛠️ 能力提升建议
+        #     {to_be_setup_tools}
 
-            ## 📋 证据链摘要
-            {evidence_chain}
-            """
+        #     ## 📋 证据链摘要
+        #     {evidence_chain}
+        #     """
 
-            Mandatory_RULES = self.mandatory_rules
-            CONSTRAINTS = self.constraints
+        #     Mandatory_RULES = self.mandatory_rules
+        #     CONSTRAINTS = self.constraints
 
-            STEPS = """
-            请严格按以下步骤执行调查分析，并将每个步骤的输出写入对应的模板变量：
+        #     STEPS = """
+        #     请严格按以下步骤执行调查分析，并将每个步骤的输出写入对应的模板变量：
 
-            1. 步骤1：告警上下文深度解析
-               - 分析进程异常的具体行为特征：命令行参数、执行参数、参数异常
-               - 检查进程执行环境：容器内/宿主机、执行用户权限、工作目录
-               - 分析进程启动时机：系统启动时、定时任务、服务启动时、用户交互时
-               - 识别产品线归属和业务关键性：基于instance_tags和业务上下文
-               - 将分析结果写入：{step1_description}
-               - 将使用的工具名称写入：{step1_tool_status}
-               - 将关键发现写入：{step1_findings}和{key_findings}
+        #     1. 步骤1：告警上下文深度解析
+        #        - 分析进程异常的具体行为特征：命令行参数、执行参数、参数异常
+        #        - 检查进程执行环境：容器内/宿主机、执行用户权限、工作目录
+        #        - 分析进程启动时机：系统启动时、定时任务、服务启动时、用户交互时
+        #        - 识别产品线归属和业务关键性：基于instance_tags和业务上下文
+        #        - 将分析结果写入：{step1_description}
+        #        - 将使用的工具名称写入：{step1_tool_status}
+        #        - 将关键发现写入：{step1_findings}和{key_findings}
 
-            2. 步骤2：进程行为深度分析
-               - 分析进程行为模式：文件操作、网络连接、系统调用序列
-               - 检查进程血缘关系：父进程合法性、子进程派生、进程树异常
-               - 评估进程资源使用：异常CPU/内存占用、文件描述符、网络连接数
-               - 检测进程隐藏行为：进程伪装、注入、隐藏技术
-               - 将分析结果写入：{step2_description}
-               - 将使用的工具名称写入：{step2_tool_status}
-               - 将关键发现写入：{step2_findings}和{key_findings}
+        #     2. 步骤2：进程行为深度分析
+        #        - 分析进程行为模式：文件操作、网络连接、系统调用序列
+        #        - 检查进程血缘关系：父进程合法性、子进程派生、进程树异常
+        #        - 评估进程资源使用：异常CPU/内存占用、文件描述符、网络连接数
+        #        - 检测进程隐藏行为：进程伪装、注入、隐藏技术
+        #        - 将分析结果写入：{step2_description}
+        #        - 将使用的工具名称写入：{step2_tool_status}
+        #        - 将关键发现写入：{step2_findings}和{key_findings}
 
-            3. 步骤3：威胁情报关联分析
-               - 多维度威胁情报分析：进程哈希、文件路径、命令行特征
-               - 检查进程相关IOC在威胁情报库中的匹配情况
-               - 分析网络连接的目的地IP/域名的信誉度
-               - 评估进程行为与已知攻击模式的匹配度
-               - 将分析结果写入：{step3_description}
-               - 将使用的工具名称写入：{step3_tool_status}
-               - 将关键发现写入：{step3_findings}和{key_findings}
+        #     3. 步骤3：威胁情报关联分析
+        #        - 多维度威胁情报分析：进程哈希、文件路径、命令行特征
+        #        - 检查进程相关IOC在威胁情报库中的匹配情况
+        #        - 分析网络连接的目的地IP/域名的信誉度
+        #        - 评估进程行为与已知攻击模式的匹配度
+        #        - 将分析结果写入：{step3_description}
+        #        - 将使用的工具名称写入：{step3_tool_status}
+        #        - 将关键发现写入：{step3_findings}和{key_findings}
 
-            4. 步骤4：安全暴露面评估
-               - 异常进程是否暴露宿主机某个端口，如果有，该端口涉及的安全组权限是否收敛
-               - 评估实例网络暴露程度：公网IP、NAT映射、负载均衡配置
-               - 宿主机是否开放了其他端口，如果有，端口涉及的安全组权限是否收敛
-               - 检查容器运行时安全配置：特权模式、挂载敏感目录、capabilities
-               - 评估身份认证和访问控制风险
-               - 将分析结果写入：{step4_description}
-               - 将使用的工具名称写入：{step4_tool_status}
-               - 将关键发现写入：{step4_findings}和{key_findings}
+        #     4. 步骤4：安全暴露面评估
+        #        - 异常进程是否暴露宿主机某个端口，如果有，该端口涉及的安全组权限是否收敛
+        #        - 评估实例网络暴露程度：公网IP、NAT映射、负载均衡配置
+        #        - 宿主机是否开放了其他端口，如果有，端口涉及的安全组权限是否收敛
+        #        - 检查容器运行时安全配置：特权模式、挂载敏感目录、capabilities
+        #        - 评估身份认证和访问控制风险
+        #        - 将分析结果写入：{step4_description}
+        #        - 将使用的工具名称写入：{step4_tool_status}
+        #        - 将关键发现写入：{step4_findings}和{key_findings}
 
-            5. 步骤5：异常活动调查
-               - 检查登录异常：成功/失败登录、异常时间、异常地理位置
-               - 分析用户行为异常：权限提升、sudo使用、敏感命令执行
-               - 检查系统日志异常：服务异常启动、配置变更、审计日志
-               - 调查容器逃逸迹象：挂载docker.sock、特权容器、内核漏洞利用
-               - 将分析结果写入：{step5_description}
-               - 将使用的工具名称写入：{step5_tool_status}
-               - 将关键发现写入：{step5_findings}和{key_findings}
+        #     5. 步骤5：异常活动调查
+        #        - 检查登录异常：成功/失败登录、异常时间、异常地理位置
+        #        - 分析用户行为异常：权限提升、sudo使用、敏感命令执行
+        #        - 检查系统日志异常：服务异常启动、配置变更、审计日志
+        #        - 调查容器逃逸迹象：挂载docker.sock、特权容器、内核漏洞利用
+        #        - 将分析结果写入：{step5_description}
+        #        - 将使用的工具名称写入：{step5_tool_status}
+        #        - 将关键发现写入：{step5_findings}和{key_findings}
 
-            6. 步骤6：关联事件分析
-               - 时间关联分析：同一时间段内的其他安全事件
-               - 资产关联分析：同一资产的其他告警和异常
-               - 行为关联分析：相似攻击手法的其他事件
-               - 威胁情报关联：同一IOC出现的其他事件
-               - 将分析结果写入：{step6_description}
-               - 将使用的工具名称写入：{step6_tool_status}
-               - 将关键发现写入：{step6_findings}和{key_findings}
+        #     6. 步骤6：关联事件分析
+        #        - 时间关联分析：同一时间段内的其他安全事件
+        #        - 资产关联分析：同一资产的其他告警和异常
+        #        - 行为关联分析：相似攻击手法的其他事件
+        #        - 威胁情报关联：同一IOC出现的其他事件
+        #        - 将分析结果写入：{step6_description}
+        #        - 将使用的工具名称写入：{step6_tool_status}
+        #        - 将关键发现写入：{step6_findings}和{key_findings}
 
-            7. 步骤7：攻击链重建
-               - 重构攻击时间线：从初始访问到目标达成
-               - 识别攻击技术：基于MITRE ATT&CK框架分类
-               - 评估攻击成功率：已达成目标和未达成的攻击步骤
-               - 分析攻击者意图：数据窃取、持久化、横向移动等
-               - 将分析结果写入：{step7_description}
-               - 将使用的工具名称写入：{step7_tool_status}
-               - 将关键发现写入：{step7_findings}和{key_findings}
+        #     7. 步骤7：攻击链重建
+        #        - 重构攻击时间线：从初始访问到目标达成
+        #        - 识别攻击技术：基于MITRE ATT&CK框架分类
+        #        - 评估攻击成功率：已达成目标和未达成的攻击步骤
+        #        - 分析攻击者意图：数据窃取、持久化、横向移动等
+        #        - 将分析结果写入：{step7_description}
+        #        - 将使用的工具名称写入：{step7_tool_status}
+        #        - 将关键发现写入：{step7_findings}和{key_findings}
 
-            8. 步骤8：综合风险评估
-               - 量化风险评估：基于CVSS或类似框架评分
-               - 评估业务影响：数据泄露风险、服务中断风险、合规风险
-               - 评估攻击复杂性：攻击者技能要求、利用难度
-               - 确定风险等级和置信度
-               - 将完整的风险评估过程写入：{step8_description}
-               - 将风险等级写入：{risk_level}，风险评分写入：{risk_score}
-               - 将影响程度写入：{impact_level}，置信度写入：{confidence_level}
-               - 将风险原因写入：{risk_reason}，风险指标写入：{risk_indicators}
+        #     8. 步骤8：综合风险评估
+        #        - 量化风险评估：基于CVSS或类似框架评分
+        #        - 评估业务影响：数据泄露风险、服务中断风险、合规风险
+        #        - 评估攻击复杂性：攻击者技能要求、利用难度
+        #        - 确定风险等级和置信度
+        #        - 将完整的风险评估过程写入：{step8_description}
+        #        - 将风险等级写入：{risk_level}，风险评分写入：{risk_score}
+        #        - 将影响程度写入：{impact_level}，置信度写入：{confidence_level}
+        #        - 将风险原因写入：{risk_reason}，风险指标写入：{risk_indicators}
 
-            9. 步骤9：应急处置建议
-               - 制定优先级处置措施：立即阻断、调查取证、恢复加固
-               - 提供具体操作命令和步骤
-               - 考虑业务影响最小化的处置方案
-               - 制定验证处置效果的方法
-               - 将完整的处置建议制定过程写入：{step9_description}
-               - 将最终的处置建议列表写入：{action_items}
+        #     9. 步骤9：应急处置建议
+        #        - 制定优先级处置措施：立即阻断、调查取证、恢复加固
+        #        - 提供具体操作命令和步骤
+        #        - 考虑业务影响最小化的处置方案
+        #        - 制定验证处置效果的方法
+        #        - 将完整的处置建议制定过程写入：{step9_description}
+        #        - 将最终的处置建议列表写入：{action_items}
 
-            10. 步骤10：改进措施识别
-                - 识别检测能力缺口：未能检测的攻击技术和行为
-                - 提出防护措施改进：配置加固、策略优化
-                - 建议监控能力提升：新的检测规则、监控覆盖
-                - 规划自动化响应能力
-                - 将完整的改进需求分析写入：{step10_description}
-                - 将具体的工具和能力要求写入：{to_be_setup_tools}
-                - 将证据链摘要写入：{evidence_chain}
+        #     10. 步骤10：改进措施识别
+        #         - 识别检测能力缺口：未能检测的攻击技术和行为
+        #         - 提出防护措施改进：配置加固、策略优化
+        #         - 建议监控能力提升：新的检测规则、监控覆盖
+        #         - 规划自动化响应能力
+        #         - 将完整的改进需求分析写入：{step10_description}
+        #         - 将具体的工具和能力要求写入：{to_be_setup_tools}
+        #         - 将证据链摘要写入：{evidence_chain}
 
-            【关键执行要求】
-            1. 每个步骤必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
-            2. 所有发现必须基于可验证的证据和数据
-            3. 风险评估必须基于实际发现，避免主观臆断
-            4. 处置建议必须具体可行，包含操作步骤
-            5. 工具使用情况必须真实反映调查过程
-            """
+        #     【关键执行要求】
+        #     1. 每个步骤必须明确说明是否执行了检查，检查结果如何，如未执行需说明原因
+        #     2. 所有发现必须基于可验证的证据和数据
+        #     3. 风险评估必须基于实际发现，避免主观臆断
+        #     4. 处置建议必须具体可行，包含操作步骤
+        #     5. 工具使用情况必须真实反映调查过程
+        #     """
 
-            prompt = f"""
-            {FUNCTION.strip()}
-            目标受众：
-            {AUDIENCE.strip()}
-            请按以下思维步骤（Chain-of-Thought）逐步推理：
-            {STEPS.strip()}
-            输出必须严格遵循以下模板：
-            {TEMPLATE.strip()}
-            强制规则：
-            {Mandatory_RULES.strip()}
-            约束条件：
-            {CONSTRAINTS.strip()}
-            """
-            return PromptMessage(
-                role="assistant",
-                content=TextContent(
-                    type="text",
-                    text=prompt)
-            )
+        #     prompt = f"""
+        #     {FUNCTION.strip()}
+        #     目标受众：
+        #     {AUDIENCE.strip()}
+        #     请按以下思维步骤（Chain-of-Thought）逐步推理：
+        #     {STEPS.strip()}
+        #     输出必须严格遵循以下模板：
+        #     {TEMPLATE.strip()}
+        #     强制规则：
+        #     {Mandatory_RULES.strip()}
+        #     约束条件：
+        #     {CONSTRAINTS.strip()}
+        #     """
+        #     return PromptMessage(
+        #         role="assistant",
+        #         content=TextContent(
+        #             type="text",
+        #             text=prompt)
+        #     )
 
         #
         #
@@ -1112,6 +1156,3 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
         #     )
         #
         #
-
-
-
