@@ -228,7 +228,7 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
 
               - 查询该实例在相同时间窗口是否存在其它告警
               - 列出对应事件的时间点
-              - 查询该实例在其它资产上的异常行为
+              - 查询该实例在其它资产上的异常行为，并判断资产是否被渗透或者否有被攻陷风险
               - 形成时间关联和行为关联矩阵
               - 将分析结果写入：{step6_description}
             

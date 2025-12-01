@@ -214,7 +214,7 @@ class ALICLOUD_WEBSHELL_PROMPT(BaseServer,PromptMixin):
               - 查询该实例在相同时间窗口：
                 - 是否存在其他恶意进程相关告警
                 - 是否存在 WebShell、暴力破解、提权、异常登录等相关告警
-              - 查询该账号在其他资产上的异常行为
+              - 查询该账号在其他资产上的异常行为，并判断资产是否被渗透或者否有被攻陷风险
               - 形成时间关联和行为关联矩阵
               - 将分析结果写入：{step6_description}
 
