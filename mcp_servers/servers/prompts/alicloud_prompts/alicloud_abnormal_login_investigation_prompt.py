@@ -89,18 +89,15 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             
             **5️⃣ 步骤5：综合风险评估**
             - 📝 分析描述: {step5_description}
-            
-            **6️⃣ 步骤6：关联事件分析**
+
+            **7️⃣ 步骤6：资产基线安全评估**
             - 📝 分析描述: {step6_description}
 
-            **7️⃣ 步骤7：资产基线安全评估**
+            **8️⃣ 步骤7：制定处置建议**
             - 📝 分析描述: {step7_description}
-
-            **8️⃣ 步骤8：制定处置建议**
-            - 📝 分析描述: {step8_description}
             
-            **9️⃣ 步骤9：识别工具改进需求**
-            - 📝 分析描述: {step9_description}
+            **9️⃣ 步骤8：识别工具改进需求**
+            - 📝 分析描述: {step8_description}
 
             
             ## 🔍 关键发现
@@ -195,17 +192,14 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             
             步骤4：关联分析
             - 调取工具查询阿里云安全中心的网络安全事件，是否有相同账号存在于其他资产上
-            
             - 调取工具查询若有相同账号，则是否同样存在弱密码的告警
-            
-            - 调取工具查询源IP所在的资产是否也有其他涉及安全威胁到其他资产的网络安全事件告警
-            
+            - 调取工具查询源IP所在的资产是否也有其它涉及安全威胁到其他资产的网络安全事件告警
+            - 明确列出对应事件的时间点
             - 识别攻击模式和横向移动迹象
-            
+            - 查询该实例在其它资产上的异常行为
+            - 判断分析被渗透资产资产是否被渗透或者否有被攻陷风险
             - 将完整的分析过程和执行结果写入：{step4_description}
-            
             - 将实际使用的工具名称或未使用工具的原因写入：{step4_tool_status}
-            
             - 将关键发现摘要写入：{key_findings}
             
             步骤5：综合风险评估
@@ -223,16 +217,8 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             - 将风险原因写入：{risk_reason}
             
             - 将风险指标写入：{risk_indicators}
-
-            步骤6：关联事件分析
-
-              - 查询该实例在相同时间窗口是否存在其它告警
-              - 列出对应事件的时间点
-              - 查询该实例在其它资产上的异常行为，并判断资产是否被渗透或者否有被攻陷风险
-              - 形成时间关联和行为关联矩阵
-              - 将分析结果写入：{step6_description}
             
-            步骤7：资产基线安全评估
+            步骤6：资产基线安全评估
 
             目标：补充资产在登录安全事件之外的整体基线安全水平评估，作为是否存在长期安全隐患的重要参考。
 
@@ -246,10 +232,10 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             - 危险端口检查：是否开放非业务必要端口（如 23/135/445/3389 等）
             - 安全加固状态：是否启用主机防护、防病毒、防篡改、防爆破等能力
             - 基线风险项数量：高危 / 中危 / 低危数量统计
-            - 将资产基线安全整体评估结果写入：{step7_description}
+            - 将资产基线安全整体评估结果写入：{step6_description}
             - 将具体的工具规格要求写入：{to_be_setup_tools}
 
-            步骤8：制定处置建议
+            步骤7：制定处置建议
             
             - 基于风险评估制定具体处置措施
             
@@ -257,17 +243,17 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             
             - 提供优先级和操作步骤
             
-            - 将完整的处置建议制定过程写入：{step8_description}
+            - 将完整的处置建议制定过程写入：{step7_description}
             
             - 将最终的处置建议列表写入：{action_items}
 
-            步骤9：识别工具改进需求
+            步骤8：识别工具改进需求
             
             - 分析调查过程中缺失的工具能力
             
             - 描述需要建立的工具名称、功能、输入输出参数
             
-            - 将完整的工具需求分析写入：{step9_description}
+            - 将完整的工具需求分析写入：{step8_description}
             
             - 将具体的工具规格要求写入：{to_be_setup_tools}
 
