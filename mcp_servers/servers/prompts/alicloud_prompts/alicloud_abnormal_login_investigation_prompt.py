@@ -225,7 +225,9 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             - 将风险指标写入：{risk_indicators}
 
             步骤6：关联事件分析
+
               - 查询该实例在相同时间窗口是否存在其它告警
+              - 列出对应事件的时间点
               - 查询该实例在其它资产上的异常行为
               - 形成时间关联和行为关联矩阵
               - 将分析结果写入：{step6_description}
@@ -244,11 +246,7 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             - 危险端口检查：是否开放非业务必要端口（如 23/135/445/3389 等）
             - 安全加固状态：是否启用主机防护、防病毒、防篡改、防爆破等能力
             - 基线风险项数量：高危 / 中危 / 低危数量统计
-
-            输出要求：
-
             - 将资产基线安全整体评估结果写入：{step7_description}
-
             - 将具体的工具规格要求写入：{to_be_setup_tools}
 
             步骤8：制定处置建议
