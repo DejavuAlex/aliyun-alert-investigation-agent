@@ -210,7 +210,7 @@ class ALICLOUD_WEBSHELL_PROMPT(BaseServer,PromptMixin):
               - 判断是否有持久化机制：Systemd 服务、自启动脚本、cron任务
               - 将分析结果写入：{step5_description}
 
-            6. 步骤6：关联事件分析（实例&账号级）
+            6. 步骤6：关联事件分析
               - 查询该实例在相同时间窗口：
                 - 是否存在其他恶意进程相关告警
                 - 是否存在 WebShell、暴力破解、提权、异常登录等相关告警

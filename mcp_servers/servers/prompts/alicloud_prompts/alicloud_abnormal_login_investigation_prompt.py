@@ -90,14 +90,17 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             **5️⃣ 步骤5：综合风险评估**
             - 📝 分析描述: {step5_description}
             
-            **6️⃣ 步骤6：制定处置建议**
+            **6️⃣ 步骤6：关联事件分析**
             - 📝 分析描述: {step6_description}
 
             **7️⃣ 步骤7：资产基线安全评估**
+            - 📝 分析描述: {step7_description}
+
+            **8️⃣ 步骤8：制定处置建议**
             - 📝 分析描述: {step8_description}
             
-            **8️⃣ 步骤8：识别工具改进需求**
-            - 📝 分析描述: {step7_description}
+            **9️⃣ 步骤9：识别工具改进需求**
+            - 📝 分析描述: {step9_description}
 
             
             ## 🔍 关键发现
@@ -220,18 +223,12 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
             - 将风险原因写入：{risk_reason}
             
             - 将风险指标写入：{risk_indicators}
-            
-            步骤6：制定处置建议
-            
-            - 基于风险评估制定具体处置措施
-            
-            - 建议包括：立即阻断IP、重置用户密码、吊销会话令牌、增强监控等
-            
-            - 提供优先级和操作步骤
-            
-            - 将完整的处置建议制定过程写入：{step6_description}
-            
-            - 将最终的处置建议列表写入：{action_items}
+
+            步骤6：关联事件分析
+              - 查询该实例在相同时间窗口是否存在其它告警
+              - 查询该实例在其它资产上的异常行为
+              - 形成时间关联和行为关联矩阵
+              - 将分析结果写入：{step6_description}
             
             步骤7：资产基线安全评估
 
@@ -254,13 +251,25 @@ class AliCLOUD_ABNORMAL_LOGIN_PROMPT(BaseServer,PromptMixin):
 
             - 将具体的工具规格要求写入：{to_be_setup_tools}
 
-            步骤8：识别工具改进需求
+            步骤8：制定处置建议
+            
+            - 基于风险评估制定具体处置措施
+            
+            - 建议包括：立即阻断IP、重置用户密码、吊销会话令牌、增强监控等
+            
+            - 提供优先级和操作步骤
+            
+            - 将完整的处置建议制定过程写入：{step8_description}
+            
+            - 将最终的处置建议列表写入：{action_items}
+
+            步骤9：识别工具改进需求
             
             - 分析调查过程中缺失的工具能力
             
             - 描述需要建立的工具名称、功能、输入输出参数
             
-            - 将完整的工具需求分析写入：{step8_description}
+            - 将完整的工具需求分析写入：{step9_description}
             
             - 将具体的工具规格要求写入：{to_be_setup_tools}
 
