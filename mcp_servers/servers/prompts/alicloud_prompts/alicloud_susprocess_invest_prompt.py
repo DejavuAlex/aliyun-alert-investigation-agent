@@ -238,6 +238,7 @@ class ALICLOUD_WEBSHELL_PROMPT(BaseServer,PromptMixin):
                 - 短期处置（修复漏洞/重置凭证）
                 - 长期处置（加固基线/优化检测）
               - 提供应急命令与回滚预案
+              - 查看现有可以运行的异常登录相关shell脚本，并告知给用户并询问用户是否执行，输出在：{action_items}
               - 将结果写入：{step9_description}
 
             10. 步骤10：改进措施识别

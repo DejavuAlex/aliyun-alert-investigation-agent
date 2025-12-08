@@ -1,4 +1,6 @@
 import json
+import base64
+import os
 import logging
 from alibabacloud_ecs20140526.client import Client as Ecs20140526Client
 from alibabacloud_credentials.client import Client as CredentialClient, Client
@@ -481,6 +483,103 @@ class ALI_CLOUD_ECS(BaseServer):
                 raise RuntimeError(f"Failed to run command on ECS instance: {e}")
 
         @self.mcp_instance.tool
+        async def run_script_content_async(
+                access_key_id: str,
+                region_id: str,
+                instance_id_list: list[str],
+                os: str,
+                script_content: str = None,
+                local_script_path: str = None,
+        ) -> dict:
+            """
+            在ECS实例上安全运行脚本。
+            - 支持直接传入脚本内容(script_content)或提供本地脚本路径(local_script_path)读取。
+            - 自动处理编码(BOM/UTF-8/GBK等)和换行(CRLF->LF)以避免内容截断或未闭合引号问题。
+            - Linux: 使用单引号heredoc写入临时文件；若脚本包含shebang则直接执行该文件，否则使用bash执行。
+            - Windows: 使用PowerShell单引号Here-String写入临时ps1文件并执行。
+            """
+            # 读入脚本内容（如果提供了本地路径）
+            if local_script_path and not script_content:
+                if not os.path.isfile(local_script_path):
+                    raise FileNotFoundError(f"本地脚本不存在: {local_script_path}")
+                raw = None
+                with open(local_script_path, "rb") as f:
+                    raw = f.read()
+                decoded = None
+                for enc in ("utf-8", "utf-8-sig", "gbk", "latin-1"):
+                    try:
+                        decoded = raw.decode(enc)
+                        break
+                    except Exception:
+                        continue
+                if decoded is None:
+                    decoded = raw.decode("utf-8", errors="replace")
+                # 规范换行，避免在Linux上出现CRLF导致解析异常
+                script_content = decoded.replace("\r\n", "\n").replace("\r", "\n")
+            if script_content is None:
+                raise ValueError("必须提供脚本内容(script_content)或本地脚本路径(local_script_path)之一。")
+
+            # 确保脚本末尾以换行结束，以避免heredoc/Here-String末行被吞导致内容不完整
+            if not script_content.endswith("\n"):
+                script_content = script_content + "\n"
+
+            ecs_client = self.initialize_client_4_specific_region(access_key_id, region_id)
+
+            try:
+                if os == "Linux":
+                    # 选择一个不与脚本内容冲突的heredoc分隔符
+                    delim = "MCP_EOF"
+                    while delim in script_content:
+                        delim += "_X"
+
+                    has_shebang = script_content.lstrip().startswith("#!")
+                    # 构造不含缩进的脚本，确保heredoc分隔符在列首，避免未终止引号错误
+                    bootstrap = (
+                        "#!/bin/bash\n"
+                        + "set -euo pipefail\n"
+                        + "tmp=\"$(mktemp /tmp/aliyun_run_XXXXXX.sh)\"\n"
+                        + f"cat <<'{delim}' > \"$tmp\"\n"
+                        + f"{script_content}"
+                        + f"{delim}\n"
+                        + "chmod +x \"$tmp\"\n"
+                        + ("\"$tmp\"\n" if has_shebang else "bash \"$tmp\"\n")
+                    )
+                    payload_b64 = base64.b64encode(bootstrap.encode("utf-8")).decode("utf-8")
+                    request_type = "RunShellScript"
+
+                elif os == "Windows":
+                    # 使用单引号Here-String，防止插值；将脚本写入临时ps1文件后执行；确保Here-String定界符在列首
+                    bootstrap = (
+                        "$ErrorActionPreference = 'Stop'\n"
+                        + "$tmp = [System.IO.Path]::GetTempFileName() + '.ps1'\n"
+                        + "@'\n"
+                        + f"{script_content}\n"
+                        + "'@ | Set-Content -Path $tmp -Encoding UTF8\n"
+                        + "powershell -ExecutionPolicy Bypass -File $tmp\n"
+                    )
+                    payload_b64 = base64.b64encode(bootstrap.encode("utf-8")).decode("utf-8")
+                    request_type = "RunPowerShellScript"
+
+                else:
+                    raise ValueError("Unsupported OS type. Must be 'Linux' or 'Windows'.")
+
+                request = ecs_20140526_models.RunCommandRequest()
+                request.instance_id = instance_id_list
+                request.command_content = payload_b64
+                request.region_id = region_id
+                request.content_encoding = "Base64"
+                request.keep_command = True
+                request.type = request_type
+
+                response: ecs_20140526_models.RunCommandResponse = await ecs_client.run_command_with_options_async(
+                    request,
+                    util_models.RuntimeOptions()
+                )
+                return {"commandId": response.body.command_id, "invokeId": response.body.invoke_id}
+            except Exception as e:
+                raise RuntimeError(f"Failed to run script content on ECS instance: {e}")
+
+        @self.mcp_instance.tool
         async def describe_invocation_results(
                 access_key_id: str,
                 region_id: str,
@@ -489,6 +588,8 @@ class ALI_CLOUD_ECS(BaseServer):
                 invoke_id: str,
                 nextToken: str = None,
                 maxResults: int = 50,
+                include_output_on_error: bool = True,
+                max_output_chars: int = 4000,
         ) -> str:
             """
             查询命令执行结果
@@ -513,6 +614,8 @@ class ALI_CLOUD_ECS(BaseServer):
                 invoke_id: 运行命令时返回的invokeId
                 nextToken: 分页查询时的查询凭证
                 maxResults: 每页最大条目数（<=50）
+                include_output_on_error: 当命令失败或退出码非0时，是否在错误信息中附带解码后的输出片段（默认 True）
+                max_output_chars: 错误信息中输出片段的最大长度（默认 4000）
 
             Returns:
                 str: 返回的是命令执行结果，用Base64编码，需要解码后查看
@@ -532,25 +635,169 @@ class ALI_CLOUD_ECS(BaseServer):
                     request,
                     util_models.RuntimeOptions()
                 )
-                invocation_result = response.body.invocation.invocation_results.invocation_result[0]
+
+                # 安全获取结果列表
+                inv_container = response.body.invocation if response and response.body else None
+                inv_results_container = inv_container.invocation_results if inv_container else None
+                inv_list = inv_results_container.invocation_result if inv_results_container else None
+                if not inv_list or len(inv_list) == 0:
+                    raise RuntimeError(f"未找到命令执行结果；instance_id={instance_id}, command_id={command_id}, invoke_id={invoke_id}")
+
+                invocation_result = inv_list[0]
                 status = invocation_result.invocation_status
                 exit_code = invocation_result.exit_code
                 error_code = invocation_result.error_code
                 error_info = invocation_result.error_info
-                logger.debug(f"Invocation status={status} exit_code={exit_code} instance={instance_id}")
+                output_b64 = invocation_result.output or ""
+
+                logger.debug(f"Invocation status={status} exit_code={exit_code} error_code={error_code} instance={instance_id}")
+
+                # 构建输出片段（仅在错误时附带）
+                def build_output_snippet():
+                    if not include_output_on_error or not output_b64:
+                        return ""
+                    try:
+                        decoded = base64.b64decode(output_b64).decode("utf-8", errors="replace")
+                    except Exception as de:
+                        return f"\n输出解码失败: {de}"
+                    if len(decoded) > max_output_chars:
+                        return f"\n输出片段(截断为{max_output_chars}字节):\n{decoded[:max_output_chars]}"
+                    return f"\n输出片段:\n{decoded}"
+
                 # 按状态分类处理
                 if status in ("Pending", "Running", "Scheduled", "Stopping"):
-                    raise RuntimeError(f"命令状态[{status}]：{COMMAND_INVOCATION_STATUS_DESCRIPTIONS.get(status,'进行中')}，请稍后重试")
+                    desc = COMMAND_INVOCATION_STATUS_DESCRIPTIONS.get(status, "进行中")
+                    raise RuntimeError(f"命令状态[{status}]：{desc}，请稍后重试；instance_id={instance_id}, command_id={command_id}, invoke_id={invoke_id}")
+
                 if status in ("Invalid", "Aborted", "Error", "Timeout", "Cancelled", "Terminated"):
-                    raise RuntimeError(f"命令状态[{status}]失败：{COMMAND_INVOCATION_STATUS_DESCRIPTIONS.get(status,'失败')}；错误信息: {error_info or '无'}")
+                    desc = COMMAND_INVOCATION_STATUS_DESCRIPTIONS.get(status, "失败")
+                    raise RuntimeError(
+                        f"命令状态[{status}]失败：{desc}；exit_code={exit_code}；error_code={error_code or '无'}；错误信息: {error_info or '无'}；"
+                        f"instance_id={instance_id}, command_id={command_id}, invoke_id={invoke_id}"
+                        + build_output_snippet()
+                    )
+
                 if status == "Failed":
-                    raise RuntimeError(f"命令执行失败，退出码: {exit_code}，错误: {error_info or '无'}")
+                    msg = (
+                        f"命令执行失败，退出码: {exit_code}；error_code={error_code or '无'}；错误: {error_info or '无'}；"
+                        f"instance_id={instance_id}, command_id={command_id}, invoke_id={invoke_id}"
+                        + build_output_snippet()
+                    )
+                    # 针对常见的引号未闭合错误提供更具体的诊断与修复建议
+                    if include_output_on_error and output_b64:
+                        try:
+                            _decoded = base64.b64decode(output_b64).decode("utf-8", errors="replace")
+                            if "Unterminated quoted string" in _decoded:
+                                msg += "\n诊断: 检测到Shell报错“Unterminated quoted string”。这通常是由于将脚本内容用引号包裹导致的字符串未闭合。\n修复建议: 使用工具 run_script_content_async 传入原始脚本内容，或在构建命令内容时使用 heredoc（例如 <<'EOF' ... EOF）避免转义问题。"
+                        except Exception:
+                            pass
+                    raise RuntimeError(msg)
+
                 if status == "Success":
                     if UtilClient.equal_string(f"{exit_code}", "0"):
-                        return invocation_result.output  # Base64 编码输出
+                        return output_b64  # Base64 编码输出
                     else:
-                        raise RuntimeError(f"命令标记成功但退出码非0({exit_code})，错误: {error_info or '无'}")
+                        raise RuntimeError(
+                            f"命令标记成功但退出码非0({exit_code})；error_code={error_code or '无'}；错误: {error_info or '无'}；"
+                            f"instance_id={instance_id}, command_id={command_id}, invoke_id={invoke_id}"
+                            + build_output_snippet()
+                        )
+
                 # 未知状态兜底
-                raise RuntimeError(f"未识别的命令状态[{status}]，请检查：{error_info or '无'}")
+                raise RuntimeError(
+                    f"未识别的命令状态[{status}]；error_code={error_code or '无'}；请检查：{error_info or '无'}；"
+                    f"instance_id={instance_id}, command_id={command_id}, invoke_id={invoke_id}"
+                    + build_output_snippet()
+                )
             except Exception as e:
                 raise RuntimeError(f"Failed to describe invocation results: {e}")
+
+        @self.mcp_instance.tool
+        async def upload_file_async(
+            access_key_id: str,
+            region_id: str,
+            instance_id_list: list[str],
+            local_file_path: str,
+            remote_file_path: str,
+            os_type: str,
+            run_after_upload: bool = False
+        ) -> dict:
+            """
+            上传本地文件到指定 ECS 实例，并可选择上传后执行
+
+            Args:
+                access_key_id: 使用哪个账号下的access_key_id来调用接口
+                region_id: 实例所属的地域ID，如cn-hangzhou
+                instance_id_list: ECS实例ID列表
+                local_file_path: 本地待上传文件路径
+                remote_file_path: ECS上目标文件路径
+                os_type: Linux 或 Windows
+                run_after_upload: 是否在上传后执行文件
+            Returns:
+                dict: 包含上传命令ID和执行命令ID（如果执行了）
+            """
+            if not os.path.isfile(local_file_path):
+                raise FileNotFoundError(f"本地文件不存在: {local_file_path}")
+
+            # 读取文件并Base64编码
+            with open(local_file_path, "rb") as f:
+                file_content_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+            ecs_client = self.initialize_client_4_specific_region(access_key_id, region_id)
+
+            try:
+                # 生成上传命令内容
+                if os_type == "Linux":
+                    # 使用echo + base64解码写入目标文件
+                    # 使用printf避免echo将以'-'开头的Base64误判为选项；并保持严格单引号包裹内容
+                    command_content = f"printf '%s' '{file_content_b64}' | base64 -d > {remote_file_path}"
+                    command_type = "RunShellScript"
+                    run_command = f"chmod +x {remote_file_path} && {remote_file_path}" if run_after_upload else None
+                elif os_type == "Windows":
+                    # Windows PowerShell上传
+                    command_content = (
+                        f"$content = '{file_content_b64}'; "
+                        f"[System.IO.File]::WriteAllBytes('{remote_file_path}', [Convert]::FromBase64String($content))"
+                    )
+                    command_type = "RunPowerShellScript"
+                    run_command = remote_file_path if run_after_upload else None
+                else:
+                    raise ValueError("Unsupported OS type. Must be 'Linux' or 'Windows'.")
+
+                # 上传文件命令
+                upload_request = ecs_20140526_models.RunCommandRequest()
+                upload_request.instance_id = instance_id_list
+                upload_request.command_content = base64.b64encode(command_content.encode("utf-8")).decode("utf-8")
+                upload_request.region_id = region_id
+                upload_request.content_encoding = "Base64"
+                upload_request.keep_command = True
+                upload_request.type = command_type
+
+                upload_response: ecs_20140526_models.RunCommandResponse = await ecs_client.run_command_with_options_async(
+                    upload_request,
+                    util_models.RuntimeOptions()
+                )
+
+                result = {"uploadCommandId": upload_response.body.command_id, "uploadInvokeId": upload_response.body.invoke_id}
+
+                # 如果需要执行
+                if run_command:
+                    exec_request = ecs_20140526_models.RunCommandRequest()
+                    exec_request.instance_id = instance_id_list
+                    exec_request.region_id = region_id
+                    exec_request.content_encoding = "Base64"
+                    exec_request.keep_command = True
+                    exec_request.type = command_type
+                    # 设置要执行的命令内容
+                    exec_request.command_content = base64.b64encode(run_command.encode("utf-8")).decode("utf-8")
+
+                    exec_response: ecs_20140526_models.RunCommandResponse = await ecs_client.run_command_with_options_async(
+                        exec_request,
+                        util_models.RuntimeOptions()
+                    )
+                    result.update({"execCommandId": exec_response.body.command_id, "execInvokeId": exec_response.body.invoke_id})
+
+                return result
+
+            except Exception as e:
+                raise RuntimeError(f"Failed to upload or execute file on ECS instance: {e}")

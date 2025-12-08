@@ -31,6 +31,7 @@ class Ali_CLOUD_EVENT_PROMPT(BaseServer):
             - 调用和阿里云相关的工具时候，遇到API流控时采用节流与重试，而不是跳过
             - 调用和阿里云相关的工具的时候，常常需要指定region_id, access_key_id才能进行查询，如果未明确指定，则默认查询所有access_key_id下的所有region_id的资源
             - 遇到任何IP如果是外网IP，都需要执行本地工具库中IP调查相关的prompt
+            - 不要随意创造不存在的脚本
             
             """
             return prompt
